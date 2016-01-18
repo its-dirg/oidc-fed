@@ -7,13 +7,13 @@ from oidc_fed.federation import Federation
 class TestFederation(object):
     @pytest.fixture(autouse=True)
     def create_signing_key(self):
-        self.signing_key = SYMKey(key="abcdef", use="sig")
+        self.signing_key = SYMKey(key="abcdef", use="sig", alg="HS256")
 
     def test_create_software_statement(self):
         registration_data = {
             "foo": "bar"
         }
-        federation = Federation(self.signing_key, "HS256")
+        federation = Federation(self.signing_key)
 
         jws = federation.create_software_statement(registration_data)
         software_statement = JWS().verify_compact(jws, keys=[self.signing_key])
@@ -25,7 +25,7 @@ class TestFederation(object):
             "foo": "bar"
         }
         policy_attributes = {"abc": "xyz"}
-        federation = Federation(self.signing_key, "HS256", policy=policy_attributes)
+        federation = Federation(self.signing_key, policy=policy_attributes)
 
         jws = federation.create_software_statement(registration_data)
         software_statement = JWS().verify_compact(jws, keys=[self.signing_key])
@@ -38,7 +38,18 @@ class TestFederation(object):
             "foo": "bar"
         }
         required_attributes = {"xyz", "bar"}
-        federation = Federation(self.signing_key, "HS256", required_attributes=required_attributes)
+        federation = Federation(self.signing_key, required_attributes=required_attributes)
 
         with pytest.raises(ValueError) as exc:
             federation.create_software_statement(registration_data)
+
+    def test_federation_rejectkey_with_wrong_use(self):
+        with pytest.raises(ValueError) as exc:
+            Federation(SYMKey(use="enc"))  # encryption key
+
+        with pytest.raises(ValueError) as exc:
+            Federation(SYMKey(use=""))  # unspecified usage
+
+    def test_federation_reject_signing_key_without_algorithm(self):
+        with pytest.raises(ValueError) as exc:
+            Federation(SYMKey(use="sig"))

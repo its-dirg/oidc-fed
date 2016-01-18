@@ -5,16 +5,18 @@ from jwkest.jws import JWS
 
 
 class Federation(object):
-    def __init__(self, signing_key: Key, signing_alg: str, required_attributes: set = None,
+    def __init__(self, signing_key: Key, required_attributes: set = None,
                  policy: dict = None) -> None:
         """
         :param signing_key: key to use when signing software statements
-        :param signing_alg: which algorithm to use when signing the software statements
         :param required_attributes: attribute names that must be present in the registration data
         :param policy: additional attributes that should be included in the signed software statement
+        :raise ValueError: if the specified signing missing 'alg' or does not have 'use=sig'
         """
+        if not signing_key.alg or signing_key.use != "sig":
+            raise ValueError("Specified signing key must have 'alg' set and 'use=sig'")
+
         self.signing_key = signing_key
-        self.signing_alg = signing_alg
         self.required_attributes = required_attributes
         self.policy = policy
 
@@ -35,5 +37,5 @@ class Federation(object):
         if self.policy:
             software_statement.update(self.policy)
 
-        return JWS(json.dumps(software_statement), alg=self.signing_alg).sign_compact(
+        return JWS(json.dumps(software_statement), alg=self.signing_key.alg).sign_compact(
                 keys=[self.signing_key])
