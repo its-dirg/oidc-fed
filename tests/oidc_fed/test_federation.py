@@ -31,7 +31,7 @@ class TestFederation(object):
         software_statement = JWS().verify_compact(jws, keys=[self.signing_key])
 
         assert all(item in software_statement.items() for item in
-                   (registration_data.items() | policy_attributes.items()))
+                   (set(registration_data.items()) | set(policy_attributes.items())))
 
     def test_create_software_statement_reject_registration_with_missing_data(self):
         registration_data = {

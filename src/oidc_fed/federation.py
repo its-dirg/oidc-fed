@@ -31,7 +31,7 @@ class Federation(object):
         if self.required_attributes and not self.required_attributes.issubset(
                 registration_data.keys()):
             raise ValueError("Missing required attributes {}.".format(
-                    self.required_attributes - registration_data.keys()))
+                    self.required_attributes - set(registration_data.keys())))
 
         software_statement = registration_data.copy()
         if self.policy:
