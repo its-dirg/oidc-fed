@@ -14,6 +14,7 @@ setup(
     package_dir={'': 'src'},
     install_requires=[
         "oic",
+        "typing"
     ],
     zip_safe=False,
     classifiers=[
