@@ -1,12 +1,11 @@
 import json
 
-from jwkest.jwk import Key
 from jwkest.jws import JWS
 
 
 class Federation(object):
-    def __init__(self, signing_key: Key, required_attributes: set = None,
-                 policy: dict = None) -> None:
+    def __init__(self, signing_key, required_attributes=None, policy=None):
+        # type: (Key, AbstractSet[str], Mapping[str, str]) -> None
         """
         :param signing_key: key to use when signing software statements
         :param required_attributes: attribute names that must be present in the registration data
@@ -20,7 +19,8 @@ class Federation(object):
         self.required_attributes = required_attributes
         self.policy = policy
 
-    def create_software_statement(self, registration_data: dict) -> str:
+    def create_software_statement(self, registration_data):
+        # type: (Mapping[str, Union[str, Sequence[str]]) -> str
         """
         Issue a signed software statement.
 
