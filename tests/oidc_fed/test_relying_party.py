@@ -43,6 +43,7 @@ class TestRP(object):
 
     @responses.activate
     def test_get_provider_configuration(self):
+        # key/signing stuff
         federation_key = sym_key()
         op_root_key = rsa_key()
         op_registration_data = dict(root_key=json.dumps(op_root_key.serialize(private=False)))
@@ -50,12 +51,17 @@ class TestRP(object):
                 op_registration_data)
         op_intermediary_key = rsa_key()
 
+        # provider config
         provider_config = DEFAULT_PROVIDER_CONFIG.copy()
         provider_config["software_statements"] = [op_software_statement]
         provider_config["signing_key"] = JWS(op_intermediary_key.serialize(private=False),
                                              alg=op_root_key.alg).sign_compact(keys=[op_root_key])
-        provider_config["signed_jwks_uri"] = "https://op.example.com/signed_jwks"
 
+        # signed JWKS
+        signed_jwks_uri = "{}/signed_jwks".format(ISSUER)
+        provider_config["signed_jwks_uri"] = signed_jwks_uri
+
+        # signed metadata
         provider_config["id_token_signing_alg_values_supported"] = ["RS256"]
         signed_metadata = provider_config.copy()
         signed_metadata["id_token_signing_alg_values_supported"] = ["RS512"]
@@ -63,15 +69,25 @@ class TestRP(object):
                                                  alg=op_intermediary_key.alg).sign_compact(
                 keys=[op_intermediary_key])
 
+        # provider configuration endpoint
         responses.add(responses.GET, "{}/.well-known/openid-configuration".format(ISSUER),
                       body=json.dumps(provider_config), status=200,
                       content_type="application/json")
+        # signed_jwks_uri
+        expected_kid = "OP key 1"
+        keys = [RSAKey(key=RSA.generate(1024), kid=expected_kid).serialize(private=False)]
+        jwks = json.dumps(dict(keys=keys))
+        jws = JWS(jwks, alg=op_intermediary_key.alg).sign_compact(keys=[op_intermediary_key])
+        responses.add(responses.GET, signed_jwks_uri, body=jws, status=200,
+                      content_type="application/jose")
 
         rp = RP(None, None, federation_keys=[federation_key])
         provider_config = rp.get_provider_configuration(ISSUER)
         assert provider_config["issuer"] == ISSUER
         # value from signed metadata overrides plain value
         assert provider_config["id_token_signing_alg_values_supported"] == ["RS512"]
+        # the signed JWKS could be fetched and verified
+        assert rp.client.keyjar[ISSUER][0].keys()[0].kid == expected_kid
 
     def test_reject_provider_configuration_with_missing_parameter(self):
         rp = RP(None, None, None)

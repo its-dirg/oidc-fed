@@ -10,6 +10,7 @@ from oic.utils.keyio import KeyJar, KeyBundle
 
 from oidc_fed import OIDCFederationError
 from oidc_fed.messages import FederationProviderConfigurationResponse
+from oidc_fed.util import KeyJarWithSignedKeyBundles
 
 
 class RP(object):
@@ -23,7 +24,10 @@ class RP(object):
         self.root_key = root_key
         self.software_statements = software_statements
         self.federation_keys = federation_keys
+
         self.client = Client()
+        self.client.keyjar = KeyJarWithSignedKeyBundles()
+
         self.intermediary_key = None
         self.jwks = None
 
@@ -72,6 +76,8 @@ class RP(object):
         provider_config = self.client.provider_config(issuer, keys=False,
                                                       response_cls=FederationProviderConfigurationResponse)
         provider_config = self._validate_provider_configuration(provider_config)
+        self.client.keyjar.load_keys(provider_config, provider_config["issuer"],
+                                     provider_config["signing_key"])
 
         return provider_config
 
@@ -99,6 +105,14 @@ class RP(object):
                 provider_config["signed_metadata"], provider_signing_key)
 
         provider_config.update(signed_provider_metadata)
+        provider_config["signing_key"] = provider_signing_key
+        try:
+            # only use 'signed_jwks_uri'
+            del provider_config["jwks_uri"]
+            del provider_config["jwks"]
+        except KeyError:
+            pass
+
         return provider_config
 
     def _verify_software_statements(self, provider_software_statements):
