@@ -36,7 +36,7 @@ class RP(OIDCFederationEntity):
         provider_config = self.client.provider_config(issuer, keys=False,
                                                       response_cls=FederationProviderConfigurationResponse)
         provider_config = self._validate_provider_configuration(provider_config)
-        self.client.keyjar.load_keys(provider_config, provider_config["issuer"],
+        self.client.keyjar.load_keys(provider_config["signed_jwks_uri"], provider_config["issuer"],
                                      provider_config["signing_key"])
 
         return provider_config

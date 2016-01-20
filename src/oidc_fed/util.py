@@ -8,16 +8,21 @@ logger = logging.getLogger(__name__)
 
 
 class KeyJarWithSignedKeyBundles(KeyJar):
-    def __init__(self, ca_certs=None, verify_ssl=True):
-        super(KeyJarWithSignedKeyBundles, self).__init__(ca_certs=ca_certs, verify_ssl=verify_ssl, keybundle_cls=SignedKeyBundle)
+    def __init__(self):
+        # type: () -> None
+        super(KeyJarWithSignedKeyBundles, self).__init__(keybundle_cls=SignedKeyBundle)
 
-    def load_keys(self, pcr, issuer, verification_key, replace=False):
-        super(KeyJarWithSignedKeyBundles, self).load_keys(pcr, issuer)
+    def load_keys(self, url, issuer, verification_key):
+        # type (str, str, Key) -> None
+        """
+        Fetch a signed JWKS from an URL and verify its signature.
 
-        try:
-            url = pcr["signed_jwks_uri"]
-        except KeyError:
-            raise ValueError("Provider configuration MUST contain 'signed_jwks_uri'.")
+        :param url: url to fetch JWKS from
+        :param issuer: owner of the JWKS
+        :param verification_key: key to use to verify the signature of the signed JWKS
+        :raise ValueError: if the JWKS could not be fetched or verified
+        """
+        super(KeyJarWithSignedKeyBundles, self).load_keys({}, issuer)
 
         kb = self.add(issuer, url, verification_key=verification_key)
         # force update
@@ -29,10 +34,19 @@ class KeyJarWithSignedKeyBundles(KeyJar):
 
 class SignedKeyBundle(KeyBundle):
     def __init__(self, verification_key, **kwargs):
+        # type: (Key, **Any) -> None
         self.verification_key = verification_key
         super(SignedKeyBundle, self).__init__(**kwargs)
 
     def _parse_remote_response(self, response):
+        # type: (requests.Response) -> Dict[str, Dict[str, List[Dict[str, str]]]
+        """
+        Parse the response from the fetched remote URL.
+
+        :param response: response to parse
+        :raise UpdateFailed: if the signature of the JWKS could not be verified
+        :return: parsed JWKS
+        """
         # only handle 'application/jose' (signed compact JWS)
         if "Content-Type" not in response.headers or response.headers[
             "Content-Type"] != 'application/jose':

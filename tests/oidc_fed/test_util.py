@@ -98,7 +98,7 @@ class TestKeyJarWithSignedKeyBundles(object):
         responses.add(responses.GET, url, body=jws, status=200, content_type="application/jose")
 
         keyjar = KeyJarWithSignedKeyBundles()
-        keyjar.load_keys({"signed_jwks_uri": url}, issuer, signing_key)
+        keyjar.load_keys(url, issuer, signing_key)
 
         assert keyjar[issuer][0].keys()[0].kid == expected_kid
 
@@ -109,4 +109,4 @@ class TestKeyJarWithSignedKeyBundles(object):
 
         keyjar = KeyJarWithSignedKeyBundles()
         with pytest.raises(ValueError):
-            keyjar.load_keys({"signed_jwks_uri": url}, "", None)
+            keyjar.load_keys(url, "", None)
