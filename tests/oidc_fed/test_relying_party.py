@@ -27,20 +27,6 @@ def sym_key():
 
 
 class TestRP(object):
-    def test_key_init(self):
-        rp = RP(sym_key(), None, None)
-
-        assert JWS().verify_compact(rp.signed_intermediary_key, keys=[rp.root_key])
-        assert JWS().verify_compact(rp.signed_jwks, keys=[rp.intermediary_key])
-
-    def test_key_rotation(self):
-        rp = RP(sym_key(), None, None)
-
-        rp.rotate_intermediary_key()
-        rp.rotate_jwks()
-        assert JWS().verify_compact(rp.signed_intermediary_key, keys=[rp.root_key])
-        assert JWS().verify_compact(rp.signed_jwks, keys=[rp.intermediary_key])
-
     @responses.activate
     def test_get_provider_configuration(self):
         # key/signing stuff

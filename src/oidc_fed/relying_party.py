@@ -1,19 +1,16 @@
 import json
 
-from Crypto.PublicKey import RSA
 from jwkest import JWKESTException
-from jwkest.jwk import RSAKey, keyrep
-from jwkest.jws import JWS
+from jwkest.jwk import keyrep
 from oic.oauth2.message import NotAllowedValue, MissingRequiredAttribute
 from oic.oic import Client
-from oic.utils.keyio import KeyJar, KeyBundle
 
-from oidc_fed import OIDCFederationError
+from oidc_fed import OIDCFederationError, OIDCFederationEntity
 from oidc_fed.messages import FederationProviderConfigurationResponse
 from oidc_fed.util import KeyJarWithSignedKeyBundles
 
 
-class RP(object):
+class RP(OIDCFederationEntity):
     def __init__(self, root_key, software_statements, federation_keys):
         # type: (Key, Sequence[str], Sequence[Key]) -> None
         """
@@ -21,47 +18,10 @@ class RP(object):
         :param software_statements: all software statements isssued by federations for this RP
         :param federation_keys: public keys from all federations this RP is part of
         """
-        self.root_key = root_key
-        self.software_statements = software_statements
-        self.federation_keys = federation_keys
+        super(RP, self).__init__(root_key, software_statements, federation_keys)
 
         self.client = Client()
         self.client.keyjar = KeyJarWithSignedKeyBundles()
-
-        self.intermediary_key = None
-        self.jwks = None
-
-        self.rotate_intermediary_key()
-        self.rotate_jwks()
-
-    @property
-    def signed_intermediary_key(self):
-        # type: () -> str
-        """
-        :return: JWS containing the intermediary key
-        """
-        return self._sign(self.intermediary_key.serialize(private=False), self.root_key)
-
-    @property
-    def signed_jwks(self):
-        # type: () -> str
-        """
-        :return: JWS containing the JWKS
-        """
-        return self._sign(self.jwks.export_jwks(), self.intermediary_key)
-
-    def rotate_intermediary_key(self):
-        # type: () -> None
-        """Replace the current intermediary key with a fresh one."""
-        self.intermediary_key = RSAKey(key=RSA.generate(1024), use="sig", alg="RS256")
-
-    def rotate_jwks(self):
-        # type: () -> None
-        """Replace the current JWKS with a fresh one."""
-        self.jwks = KeyJar()
-        kb = KeyBundle(keyusage=["enc", "sig"])
-        kb.append(RSAKey(key=RSA.generate(1024)))
-        self.jwks.add_kb("", kb)
 
     def get_provider_configuration(self, issuer):
         # type: (str) -> FederationProviderConfigurationResponse
@@ -165,25 +125,3 @@ class RP(object):
             return self._verify(signed_metadata, [provider_signing_key])
         except JWKESTException as e:
             raise OIDCFederationError("The provider's signed metadata could not be verified.")
-
-    def _sign(self, data, key):
-        # type: (Mapping[str, Union[str, Sequence[str]]], Key) -> str
-        """
-        Create a JWS containing the data, signed with key.
-
-        :param data: data to sign
-        :param key: key to use for signature
-        :return: JWS containing the data
-        """
-        return JWS(json.dumps(data), alg=key.alg).sign_compact(keys=[key])
-
-    def _verify(self, jws, keys):
-        # type: (str, Sequence[Key]) -> Dict[str, Union[str, Lists[str]]]
-        """
-        Verify signature of JWS.
-
-        :param jws: JWS to verify signature of
-        :param keys: possible keys to verify the signature with
-        :return: payload of the JWS
-        """
-        return JWS().verify_compact(jws, keys=keys)
