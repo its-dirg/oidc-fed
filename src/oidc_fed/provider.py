@@ -16,8 +16,7 @@ class OP(OIDCFederationEntity):
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         :param jwks_uri: URL endpoint where the JWKS is published
         """
-        super(OP, self).__init__(root_key, software_statements, federation_keys)
-        self.signed_jwks_uri = signed_jwks_uri
+        super(OP, self).__init__(root_key, software_statements, federation_keys, signed_jwks_uri)
         self.provider = Provider(issuer, None, None, None, None, None, None, None)
         self.provider.jwks_uri = jwks_uri
 

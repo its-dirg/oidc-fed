@@ -18,16 +18,18 @@ class OIDCFederationError(Exception):
 
 
 class OIDCFederationEntity(object):
-    def __init__(self, root_key, software_statements, federation_keys):
-        # type: (Key, Sequence[str], Sequence[Key]) -> None
+    def __init__(self, root_key, software_statements, federation_keys, signed_jwks_uri):
+        # type: (Key, Sequence[str], Sequence[Key], str) -> None
         """
         :param root_key: root signing key for this entity
         :param software_statements: all software statements isssued by federations for this entity
         :param federation_keys: public keys from all federations this entity is part of
+        :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         """
         self.root_key = root_key
         self.software_statements = software_statements
         self.federation_keys = federation_keys
+        self.signed_jwks_uri = signed_jwks_uri
 
         self.intermediary_key = None
         self.jwks = None

@@ -11,13 +11,13 @@ def sym_key():
 
 class TestOIDCFederationEntity(object):
     def test_key_init(self):
-        rp = OIDCFederationEntity(sym_key(), None, None)
+        rp = OIDCFederationEntity(sym_key(), None, None, None)
 
         assert JWS().verify_compact(rp.signed_intermediary_key, keys=[rp.root_key])
         assert JWS().verify_compact(rp.signed_jwks, keys=[rp.intermediary_key])
 
     def test_key_rotation(self):
-        rp = OIDCFederationEntity(sym_key(), None, None)
+        rp = OIDCFederationEntity(sym_key(), None, None, None)
 
         rp.rotate_intermediary_key()
         rp.rotate_jwks()

@@ -67,7 +67,7 @@ class TestRP(object):
         responses.add(responses.GET, signed_jwks_uri, body=jws, status=200,
                       content_type="application/jose")
 
-        rp = RP(None, None, federation_keys=[federation_key])
+        rp = RP(None, None, [federation_key], None)
         provider_config = rp.get_provider_configuration(ISSUER)
         assert provider_config["issuer"] == ISSUER
         # value from signed metadata overrides plain value
@@ -76,7 +76,7 @@ class TestRP(object):
         assert rp.client.keyjar[ISSUER][0].keys()[0].kid == expected_kid
 
     def test_reject_provider_configuration_with_missing_parameter(self):
-        rp = RP(None, None, None)
+        rp = RP(None, None, None, None)
         with pytest.raises(OIDCFederationError) as exc:
             # default provider config missing all extra required attributes of FederationProviderConfigurationResponse
             rp._validate_provider_configuration(
@@ -89,7 +89,7 @@ class TestRP(object):
         rp_software_statement = federation1.create_software_statement({"foo": "bar"})
         op_software_statement = federation2.create_software_statement({"abc": "xyz"})
 
-        rp = RP(None, software_statements=[rp_software_statement], federation_keys=[fed1_key])
+        rp = RP(None, [rp_software_statement], [fed1_key], None)
         with pytest.raises(OIDCFederationError):
             rp._verify_software_statements([op_software_statement])
 
@@ -99,7 +99,7 @@ class TestRP(object):
         rp_software_statement = federation.create_software_statement({"foo": "bar"})
         op_software_statement = federation.create_software_statement({"abc": "xyz"})
 
-        rp = RP(None, software_statements=[rp_software_statement], federation_keys=[fed1_key])
+        rp = RP(None, [rp_software_statement], [fed1_key], None)
         assert rp._verify_software_statements([op_software_statement])
 
     def test_reject_provider_signing_key_not_signed_by_software_statement_root_key(self):
@@ -111,7 +111,7 @@ class TestRP(object):
         op_signing_key = JWS(op_intermediary_key.serialize(private=False),
                              alg=other_key.alg).sign_compact(keys=[other_key])
 
-        rp = RP(None, None, None)
+        rp = RP(None, None, None, None)
         with pytest.raises(OIDCFederationError):
             rp._verify_provider_signing_key(op_signing_key, op_root_key)
 
@@ -122,13 +122,13 @@ class TestRP(object):
         op_signing_key = JWS(op_intermediary_key.serialize(private=False),
                              alg=op_root_key.alg).sign_compact(keys=[op_root_key])
 
-        rp = RP(None, None, None)
+        rp = RP(None, None, None, None)
         assert rp._verify_provider_signing_key(op_signing_key, op_root_key)
 
     def test_reject_signed_metadata_not_signed_by_provider_intermediary_key(self):
         op_intermediary_key = rsa_key()
         other_key = rsa_key()
-        rp = RP(None, None, None)
+        rp = RP(None, None, None, None)
         signed_provider_metadata = JWS(json.dumps(DEFAULT_PROVIDER_CONFIG),
                                        alg=other_key.alg).sign_compact(keys=[other_key])
 
@@ -137,7 +137,7 @@ class TestRP(object):
 
     def test_accept_signed_metadata_provider_intermediary_key(self):
         op_intermediary_key = rsa_key()
-        rp = RP(None, None, None)
+        rp = RP(None, None, None, None)
         signed_provider_metadata = JWS(json.dumps(DEFAULT_PROVIDER_CONFIG),
                                        alg=op_intermediary_key.alg).sign_compact(
                 keys=[op_intermediary_key])
