@@ -11,7 +11,7 @@ from oidc_fed import OIDCFederationError, OIDCFederationEntity
 from oidc_fed.messages import (FederationProviderConfigurationResponse,
                                FederationRegistrationRequest,
                                FederationRegistrationResponse)
-from oidc_fed.util import KeyJarWithSignedKeyBundles, FederationClient
+from oidc_fed.util import FederationClient
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,7 @@ class RP(OIDCFederationEntity):
         """
         provider_config = self.client.provider_config(issuer, keys=False,
                                                       response_cls=FederationProviderConfigurationResponse)
-        self.client.provider_info, provider_signing_key = self._validate_provider_configuration(
-                provider_config)
-        self.client.keyjar.load_keys(self.client.provider_info["signed_jwks_uri"],
-                                     self.client.provider_info["issuer"],
-                                     provider_signing_key)
+        self.client.provider_info = self._validate_provider_configuration(provider_config)
 
         return self.client.provider_info
 
@@ -98,6 +94,10 @@ class RP(OIDCFederationEntity):
         self.client.provider_signing_key = provider_signing_key
         self.client.store_registration_info(registration_response)
 
+        self.client.keyjar.load_keys(self.client.provider_info["signed_jwks_uri"],
+                                     self.client.provider_info["issuer"],
+                                     provider_signing_key)
+
     def _create_registration_request(self, client_registration_data):
         # type: (Mapping[str, Any] ) -> FederationRegistrationRequest
         """
@@ -140,7 +140,7 @@ class RP(OIDCFederationEntity):
         return software_statement, signing_key
 
     def _validate_provider_configuration(self, provider_config):
-        # type: (FederationProviderConfigurationResponse) -> Tuple[FederationProviderConfigurationResponse, Key]
+        # type: (FederationProviderConfigurationResponse) -> FederationProviderConfigurationResponse
         """
         Verify the provider configuration response.
 
@@ -167,7 +167,7 @@ class RP(OIDCFederationEntity):
         except KeyError:
             pass
 
-        return provider_config, provider_signing_key
+        return provider_config
 
     def _verify_software_statements(self, provider_software_statements):
         # type: (Sequence[str]) -> Dict[str, Union[str, List[str]]]
