@@ -5,11 +5,14 @@ import responses
 from Crypto.PublicKey import RSA
 from jwkest.jwk import SYMKey, RSAKey
 from jwkest.jws import JWS
+from oic.extension.signed_http_req import SignedHttpRequest
 from oic.oauth2 import rndstr
 
 from oidc_fed import OIDCFederationError
 from oidc_fed.federation import Federation
-from oidc_fed.messages import FederationProviderConfigurationResponse
+from oidc_fed.messages import (FederationProviderConfigurationResponse,
+                               FederationRegistrationRequest,
+                               FederationRegistrationResponse)
 from oidc_fed.relying_party import RP
 
 ISSUER = "https://op.example.com"
@@ -143,3 +146,91 @@ class TestRP(object):
                 keys=[op_intermediary_key])
 
         assert rp._verify_signed_provider_metadata(signed_provider_metadata, op_intermediary_key)
+
+    def test_create_registration_request(self):
+        signed_jwks_uri = "{}/signed_jwks".format(ISSUER)
+        federation_key = sym_key()
+        rp_root_key = rsa_key()
+        rp_software_statement = Federation(federation_key).create_software_statement(
+                dict(redirect_uris=["https://rp.example.com"]))
+        rp = RP(rp_root_key, [rp_software_statement], [federation_key], signed_jwks_uri)
+
+        reg_req = rp._create_registration_request({})
+        assert reg_req.verify()
+        assert reg_req["software_statements"] == [rp_software_statement]
+        assert reg_req["signing_key"] == rp.signed_intermediary_key
+        assert reg_req["signed_jwks_uri"] == signed_jwks_uri
+
+    def test_sign_registration_request(self):
+        rp_root_key = rsa_key()
+        rp = RP(rp_root_key, None, None, None)
+
+        reg_req = FederationRegistrationRequest(**{"foo": "bar"})
+        signed = rp._sign_registration_request(reg_req)
+        assert SignedHttpRequest(rp.intermediary_key).verify(signed, body=reg_req.to_json())
+
+    def test_handle_registration_response(self):
+        federation_key = sym_key()
+        op_root_key = rsa_key()
+        op_intermediary_key = rsa_key()
+        op_signed_intermediary_key = JWS(json.dumps(op_intermediary_key.serialize(private=False)),
+                                         alg=op_root_key.alg).sign_compact(keys=[op_root_key])
+        op_software_statement = Federation(federation_key).create_software_statement(
+                dict(root_key=json.dumps(op_root_key.serialize(private=False)),
+                     scopes_supported=["openid", "test_scope"]))
+        rp = RP(None, None, [federation_key], None)
+        rp.client.provider_info = FederationProviderConfigurationResponse(
+                **dict(signing_key=op_signed_intermediary_key))  # fake provider discovery
+
+        resp_args = dict(provider_software_statement=op_software_statement, client_id="foo")
+        reg_resp = FederationRegistrationResponse(**resp_args)
+
+        rp._handle_registration_response(reg_resp)
+        assert set(rp.client.provider_info["scopes_supported"]) == {"openid", "test_scope"}
+        assert rp.client.client_id == "foo"
+
+    def test_handle_registration_response_fail_when_wrong_software_statement(self):
+        rp = RP(None, None, None, None)
+        rp.client.provider_info = FederationProviderConfigurationResponse(
+                **dict(signing_key="whatever"))  # fake provider discovery
+
+        resp_args = dict(provider_software_statement="abcdef")
+        reg_resp = FederationRegistrationResponse(**resp_args)
+
+        with pytest.raises(OIDCFederationError) as exc:
+            rp._handle_registration_response(reg_resp)
+
+        assert "software statement" in str(exc.value)
+
+    @responses.activate
+    def test_register_with_provider(self):
+        registration_endpoint = "{}/registration".format(ISSUER)
+        signed_jwks_uri = "{}/signed_jwks".format(ISSUER)
+        federation_key = sym_key()
+        rp_root_key = rsa_key()
+        rp_software_statement = Federation(federation_key).create_software_statement(
+                dict(redirect_uris=["https://rp.example.com"]))
+
+        op_root_key = rsa_key()
+        op_intermediary_key = rsa_key()
+        op_signed_intermediary_key = JWS(json.dumps(op_intermediary_key.serialize(private=False)),
+                                         alg=op_root_key.alg).sign_compact(keys=[op_root_key])
+        op_software_statement = Federation(federation_key).create_software_statement(
+                dict(root_key=json.dumps(op_root_key.serialize(private=False)),
+                     scopes_supported=["openid", "test_scope"]))
+
+        rp = RP(rp_root_key, [rp_software_statement], [federation_key], signed_jwks_uri)
+        rp.client.provider_info = FederationProviderConfigurationResponse(
+                **dict(issuer=ISSUER, signing_key=op_signed_intermediary_key,
+                       registration_endpoint=registration_endpoint))
+
+        reg_resp = FederationRegistrationResponse(
+                **dict(provider_software_statement=op_software_statement,
+                       client_id="foo", redirect_uris=["https://rp.example.com"]))
+        responses.add(responses.POST, registration_endpoint, body=reg_resp.to_json(), status=201,
+                      content_type="application/json")
+
+        client_registration_data = {}
+        rp.register_with_provider(ISSUER, client_registration_data)
+        assert rp.client.client_id == "foo"
+        assert rp.client.provider_signing_key == op_intermediary_key

@@ -2,6 +2,7 @@ import logging
 
 from jwkest import JWKESTException
 from jwkest.jws import JWS
+from oic.oic import Client
 from oic.utils.keyio import KeyBundle, UpdateFailed, KeyJar
 
 logger = logging.getLogger(__name__)
@@ -58,3 +59,11 @@ class SignedKeyBundle(KeyBundle):
             raise UpdateFailed(
                     "Remote key update from '{}' failed, could not verify signature.".format(
                             self.source))
+
+
+class FederationClient(Client):
+    def __init__(self, *args, **kwargs):
+        super(FederationClient, self).__init__(*args, **kwargs)
+
+        self.provider_signing_key = None  # type: Key
+        self.keyjar = KeyJarWithSignedKeyBundles()

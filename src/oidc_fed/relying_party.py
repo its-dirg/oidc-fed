@@ -1,13 +1,19 @@
 import json
+import logging
 
+import requests
 from jwkest import JWKESTException
 from jwkest.jwk import keyrep
-from oic.oauth2.message import NotAllowedValue, MissingRequiredAttribute
-from oic.oic import Client
+from oic.exception import MessageException
+from oic.extension.signed_http_req import SignedHttpRequest
 
 from oidc_fed import OIDCFederationError, OIDCFederationEntity
-from oidc_fed.messages import FederationProviderConfigurationResponse
-from oidc_fed.util import KeyJarWithSignedKeyBundles
+from oidc_fed.messages import (FederationProviderConfigurationResponse,
+                               FederationRegistrationRequest,
+                               FederationRegistrationResponse)
+from oidc_fed.util import KeyJarWithSignedKeyBundles, FederationClient
+
+logger = logging.getLogger(__name__)
 
 
 class RP(OIDCFederationEntity):
@@ -19,10 +25,9 @@ class RP(OIDCFederationEntity):
         :param federation_keys: public keys from all federations this RP is part of
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         """
-        super(RP, self).__init__(root_key, software_statements, federation_keys , signed_jwks_uri)
+        super(RP, self).__init__(root_key, software_statements, federation_keys, signed_jwks_uri)
 
-        self.client = Client()
-        self.client.keyjar = KeyJarWithSignedKeyBundles()
+        self.client = FederationClient()
 
     def get_provider_configuration(self, issuer):
         # type: (str) -> FederationProviderConfigurationResponse
@@ -36,37 +41,125 @@ class RP(OIDCFederationEntity):
         """
         provider_config = self.client.provider_config(issuer, keys=False,
                                                       response_cls=FederationProviderConfigurationResponse)
-        provider_config = self._validate_provider_configuration(provider_config)
-        self.client.keyjar.load_keys(provider_config["signed_jwks_uri"], provider_config["issuer"],
-                                     provider_config["signing_key"])
+        self.client.provider_info, provider_signing_key = self._validate_provider_configuration(
+                provider_config)
+        self.client.keyjar.load_keys(self.client.provider_info["signed_jwks_uri"],
+                                     self.client.provider_info["issuer"],
+                                     provider_signing_key)
 
-        return provider_config
+        return self.client.provider_info
+
+    def register_with_provider(self, issuer, client_registration_data):
+        # type (str, Mapping[str, Any]) -> None
+        """
+        Register client with a provider.
+
+        :param issuer: issuer URL for the provider to register with
+        :param client_registration_data: client metadata to send in the registration request
+        """
+        if not self.client.provider_info or self.client.provider_info["issuer"] != issuer:
+            self.get_provider_configuration(issuer)
+
+        reg_req = self._create_registration_request(client_registration_data)
+        headers = {"Content-Type": "application/jose"}
+        request_data = self._sign_registration_request(reg_req)
+        try:
+            http_resp = requests.post(self.client.provider_info["registration_endpoint"],
+                                      request_data, headers=headers)
+        except requests.ConnectionError as e:
+            raise OIDCFederationError("Could send registration request to {}".format(issuer))
+
+        logger.debug("Registration response from %s; status %s, Content-Type %s", http_resp.url,
+                     http_resp.status_code, http_resp.headers["Content-Type"])
+
+        registration_response = FederationRegistrationResponse(**http_resp.json())
+        try:
+            registration_response.verify()
+        except MessageException as e:
+            raise OIDCFederationError("Error in registration response: {}.".format(str(e)))
+
+        self._handle_registration_response(registration_response)
+
+    def _handle_registration_response(self, registration_response):
+        # type: (requests.Response) -> None
+        """
+        Verify and store the registration response.
+
+        Also sets self.client.provider_signing_key.
+        :param registration_response: registration response from the provider
+        """
+        provider_software_statement, provider_signing_key = self._verify_signature_chain(
+                [registration_response["provider_software_statement"]],
+                self.client.provider_info["signing_key"])
+
+        provider_metadata = {k: v for k, v in provider_software_statement.items() if
+                             k in FederationProviderConfigurationResponse.c_param}
+        self.client.provider_info.update(provider_metadata)
+        self.client.provider_signing_key = provider_signing_key
+        self.client.store_registration_info(registration_response)
+
+    def _create_registration_request(self, client_registration_data):
+        # type: (Mapping[str, Any] ) -> FederationRegistrationRequest
+        """
+        Create registration request.
+
+        :param client_registration_data: client metadata to send in the request
+        :return: registration request
+        """
+        registration_request = FederationRegistrationRequest(**client_registration_data)
+        registration_request["signed_jwks_uri"] = self.signed_jwks_uri
+        registration_request["signing_key"] = self.signed_intermediary_key
+        registration_request["software_statements"] = self.software_statements
+        return registration_request
+
+    def _sign_registration_request(self, registration_request):
+        # type (FederationRegistrationRequest) -> str
+        """
+        Sign registration request.
+
+        :param registration_request: registration request
+        :return: signed registration request
+        """
+        signer = SignedHttpRequest(self.intermediary_key)
+        return signer.sign(self.intermediary_key.alg, body=registration_request.to_json())
+
+    def _verify_signature_chain(self, software_statements, provider_signing_key):
+        # type: (Sequence[str], str) -> Tuple[str, Key]
+        """
+        Verify the signature chain: signature of software statement (containing root key) and
+        signature of provider signing key.
+
+        :param software_statements: all software statements from the provider
+        :param provider_signing_key: the providers intermediary signing key
+        :return:
+        """
+        software_statement = self._verify_software_statements(software_statements)
+
+        root_key = keyrep(json.loads(software_statement["root_key"]))
+        signing_key = self._verify_provider_signing_key(provider_signing_key, root_key)
+        return software_statement, signing_key
 
     def _validate_provider_configuration(self, provider_config):
-        # type: (FederationProviderConfigurationResponse) -> FederationProviderConfigurationResponse
+        # type: (FederationProviderConfigurationResponse) -> Tuple[FederationProviderConfigurationResponse, Key]
         """
         Verify the provider configuration response.
 
         :param provider_config: provider configuration response from the provider
         :raise OIDCFederationError: if the provider configuration could not be validated
-        :return: updated provider configuration
+        :return: updated provider configuration and the provider's signing key
         """
         try:
             provider_config.verify()
-        except (MissingRequiredAttribute, NotAllowedValue) as e:
+        except MessageException as e:
             raise OIDCFederationError("Error in provider configuration: {}.".format(str(e)))
 
-        provider_software_statement = self._verify_software_statements(
-                provider_config["software_statements"])
-
-        provider_root_key = keyrep(json.loads(provider_software_statement["root_key"]))
-        provider_signing_key = self._verify_provider_signing_key(provider_config["signing_key"],
-                                                                 provider_root_key)
+        _, provider_signing_key = self._verify_signature_chain(
+                provider_config["software_statements"],
+                provider_config["signing_key"])
         signed_provider_metadata = self._verify_signed_provider_metadata(
                 provider_config["signed_metadata"], provider_signing_key)
 
         provider_config.update(signed_provider_metadata)
-        provider_config["signing_key"] = provider_signing_key
         try:
             # only use 'signed_jwks_uri'
             del provider_config["jwks_uri"]
@@ -74,7 +167,7 @@ class RP(OIDCFederationEntity):
         except KeyError:
             pass
 
-        return provider_config
+        return provider_config, provider_signing_key
 
     def _verify_software_statements(self, provider_software_statements):
         # type: (Sequence[str]) -> Dict[str, Union[str, List[str]]]
