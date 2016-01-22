@@ -1,9 +1,7 @@
-import json
 import logging
 
 import requests
 from jwkest import JWKESTException
-from jwkest.jwk import keyrep
 from oic.exception import MessageException
 from oic.extension.signed_http_req import SignedHttpRequest
 
@@ -123,22 +121,6 @@ class RP(OIDCFederationEntity):
         signer = SignedHttpRequest(self.intermediary_key)
         return signer.sign(self.intermediary_key.alg, body=registration_request.to_json())
 
-    def _verify_signature_chain(self, software_statements, provider_signing_key):
-        # type: (Sequence[str], str) -> Tuple[str, Key]
-        """
-        Verify the signature chain: signature of software statement (containing root key) and
-        signature of provider signing key.
-
-        :param software_statements: all software statements from the provider
-        :param provider_signing_key: the providers intermediary signing key
-        :return:
-        """
-        software_statement = self._verify_software_statements(software_statements)
-
-        root_key = keyrep(json.loads(software_statement["root_key"]))
-        signing_key = self._verify_provider_signing_key(provider_signing_key, root_key)
-        return software_statement, signing_key
-
     def _validate_provider_configuration(self, provider_config):
         # type: (FederationProviderConfigurationResponse) -> FederationProviderConfigurationResponse
         """
@@ -169,41 +151,6 @@ class RP(OIDCFederationEntity):
 
         return provider_config
 
-    def _verify_software_statements(self, provider_software_statements):
-        # type: (Sequence[str]) -> Dict[str, Union[str, List[str]]]
-        """
-        Find and verify the signature of the first software statement issued by a common federation.
-
-        :param provider_software_statements: all software statements the provider presented in the
-         provider configuration response.
-        :raise OIDCFederationError: if no software statement has been issued by a common federation
-        :return: payload of the first software statement issued by a common federation
-        """
-        for jws in provider_software_statements:
-            try:
-                return self._verify(jws, self.federation_keys)
-            except JWKESTException as e:
-                pass
-
-        raise OIDCFederationError(
-                "No software statement from provider issued by common federation.")
-
-    def _verify_provider_signing_key(self, provider_signing_key, verification_key):
-        # type: (str, Key) -> Key
-        """
-        Verify the signature of the providers intermediary signing key.
-
-        :param provider_signing_key: JWS containing the providers intermediary key
-        :param verification_key: key to verify the signature with
-        :raise OIDCFederationError: if the signature could not be verified
-        :return: key contained in the JWS
-        """
-        try:
-            signing_key = self._verify(provider_signing_key, keys=[verification_key])
-        except JWKESTException as e:
-            raise OIDCFederationError("The provider's signing key could not be verified.")
-
-        return keyrep(signing_key)
 
     def _verify_signed_provider_metadata(self, signed_metadata, provider_signing_key):
         # type (str, Key) -> Dict[str, Union[str, List[str]]]

@@ -73,49 +73,6 @@ class TestRP(object):
             rp._validate_provider_configuration(
                     FederationProviderConfigurationResponse(**DEFAULT_PROVIDER_CONFIG))
 
-    def test_reject_provider_with_no_common_federation(self):
-        fed1_key = SYMKey(k="one_key", alg="HS256", use="sig")
-        federation1 = Federation(fed1_key)
-        federation2 = Federation(SYMKey(k="other_key1", alg="HS256", use="sig"))
-        rp_software_statement = federation1.create_software_statement({"foo": "bar"})
-        op_software_statement = federation2.create_software_statement({"abc": "xyz"})
-
-        rp = RP(None, [rp_software_statement], [fed1_key], None)
-        with pytest.raises(OIDCFederationError):
-            rp._verify_software_statements([op_software_statement])
-
-    def test_accept_provider_with_common_federation(self):
-        fed1_key = SYMKey(k="one_key", alg="HS256", use="sig")
-        federation = Federation(fed1_key)
-        rp_software_statement = federation.create_software_statement({"foo": "bar"})
-        op_software_statement = federation.create_software_statement({"abc": "xyz"})
-
-        rp = RP(None, [rp_software_statement], [fed1_key], None)
-        assert rp._verify_software_statements([op_software_statement])
-
-    def test_reject_provider_signing_key_not_signed_by_software_statement_root_key(self):
-        op_root_key = rsa_key()
-        op_intermediary_key = rsa_key()
-
-        # sign intermediary key with key other than op_root_key
-        other_key = rsa_key()
-        op_signing_key = JWS(op_intermediary_key.serialize(private=False),
-                             alg=other_key.alg).sign_compact(keys=[other_key])
-
-        rp = RP(None, None, None, None)
-        with pytest.raises(OIDCFederationError):
-            rp._verify_provider_signing_key(op_signing_key, op_root_key)
-
-    def test_accept_provider_signing_key_signed_by_software_statement_root_key(self):
-        op_root_key = rsa_key()
-        op_intermediary_key = rsa_key()
-
-        op_signing_key = JWS(op_intermediary_key.serialize(private=False),
-                             alg=op_root_key.alg).sign_compact(keys=[op_root_key])
-
-        rp = RP(None, None, None, None)
-        assert rp._verify_provider_signing_key(op_signing_key, op_root_key)
-
     def test_reject_signed_metadata_not_signed_by_provider_intermediary_key(self):
         op_intermediary_key = rsa_key()
         other_key = rsa_key()

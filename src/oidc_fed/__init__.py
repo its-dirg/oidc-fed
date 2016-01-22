@@ -8,7 +8,8 @@
 import json
 
 from Crypto.PublicKey import RSA
-from jwkest.jwk import RSAKey
+from jwkest import JWKESTException
+from jwkest.jwk import RSAKey, keyrep
 from jwkest.jws import JWS
 from oic.utils.keyio import KeyJar, KeyBundle
 
@@ -87,3 +88,55 @@ class OIDCFederationEntity(object):
         :return: payload of the JWS
         """
         return JWS().verify_compact(jws, keys=keys)
+
+    def _verify_signature_chain(self, software_statements, signing_key):
+        # type: (Sequence[str], str) -> Tuple[str, Key]
+        """
+        Verify the signature chain: signature of software statement (containing root key) and
+        signature of a signing key (in the form of a JWS).
+
+        :param software_statements: all software statements from the provider
+        :param signing_key: the entity's intermediary signing key
+        :return:
+        """
+        software_statement = self._verify_software_statements(software_statements)
+
+        root_key = keyrep(json.loads(software_statement["root_key"]))
+        signing_key = self._verify_signing_key(signing_key, root_key)
+        return software_statement, signing_key
+
+    def _verify_signing_key(self, signing_key, verification_key):
+        # type: (str, Key) -> Key
+        """
+        Verify the signature of an intermediary signing key.
+
+        :param signing_key: JWS containing the providers intermediary key
+        :param verification_key: key to verify the signature with
+        :raise OIDCFederationError: if the signature could not be verified
+        :return: key contained in the JWS
+        """
+        try:
+            signing_key = self._verify(signing_key, keys=[verification_key])
+        except JWKESTException as e:
+            raise OIDCFederationError("The provider's signing key could not be verified.")
+
+        return keyrep(signing_key)
+
+    def _verify_software_statements(self, software_statements):
+        # type: (Sequence[str]) -> Dict[str, Union[str, List[str]]]
+        """
+        Find and verify the signature of the first software statement issued by a common federation.
+
+        :param software_statements: all software statements the entity presented in the
+         metadata
+        :raise OIDCFederationError: if no software statement has been issued by a common federation
+        :return: payload of the first software statement issued by a common federation
+        """
+        for jws in software_statements:
+            try:
+                return self._verify(jws, self.federation_keys)
+            except JWKESTException as e:
+                pass
+
+        raise OIDCFederationError(
+                "No software statement from provider issued by common federation.")
