@@ -27,7 +27,7 @@ class TestOP(object):
         op_software_statement = Federation(federation_key).create_software_statement(
                 op_registration_data)
 
-        op = OP(issuer, op_root_key, [op_software_statement], None, signed_jwks_uri)
+        op = OP(issuer, op_root_key, [op_software_statement], [federation_key], signed_jwks_uri)
 
         provider_config = op.provider_configuration()
         assert provider_config["issuer"] == issuer

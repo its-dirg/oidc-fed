@@ -26,7 +26,8 @@ class OP(OIDCFederationEntity):
         Generate the provider configuration information.
         :return: the provider configuration information
         """
-        extra_params = dict(software_statements=self.software_statements,
+        extra_params = dict(software_statements=[self._recreate_software_statement(ss) for ss in
+                                                 self.software_statements],
                             signing_key=self.signed_intermediary_key,
                             signed_jwks_uri=self.signed_jwks_uri)
         provider_config = self.provider.create_providerinfo(

@@ -107,7 +107,8 @@ class RP(OIDCFederationEntity):
         registration_request = FederationRegistrationRequest(**client_registration_data)
         registration_request["signed_jwks_uri"] = self.signed_jwks_uri
         registration_request["signing_key"] = self.signed_intermediary_key
-        registration_request["software_statements"] = self.software_statements
+        registration_request["software_statements"] = [self._recreate_software_statement(ss) for ss
+                                                       in self.software_statements]
         return registration_request
 
     def _sign_registration_request(self, registration_request):

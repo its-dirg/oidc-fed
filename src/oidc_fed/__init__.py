@@ -28,7 +28,7 @@ class OIDCFederationEntity(object):
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         """
         self.root_key = root_key
-        self.software_statements = software_statements
+        self.software_statements = [self._verify(ss, federation_keys) for ss in software_statements]
         self.federation_keys = federation_keys
         self.signed_jwks_uri = signed_jwks_uri
 
@@ -140,3 +140,7 @@ class OIDCFederationEntity(object):
 
         raise OIDCFederationError(
                 "No software statement from provider issued by common federation.")
+
+    def _recreate_software_statement(self, software_statement):
+        # type (JWS) -> str
+        return software_statement.jwt.pack(software_statement.jwt.part[1:])
