@@ -86,7 +86,7 @@ class RP(OIDCFederationEntity):
                 [registration_response["provider_software_statement"]],
                 self.client.provider_info["signing_key"])
 
-        provider_metadata = {k: v for k, v in provider_software_statement.items() if
+        provider_metadata = {k: v for k, v in provider_software_statement.msg.items() if
                              k in FederationProviderConfigurationResponse.c_param}
         self.client.provider_info.update(provider_metadata)
         self.client.provider_signing_key = provider_signing_key
@@ -152,7 +152,6 @@ class RP(OIDCFederationEntity):
 
         return provider_config
 
-
     def _verify_signed_provider_metadata(self, signed_metadata, provider_signing_key):
         # type (str, Key) -> Dict[str, Union[str, List[str]]]
         """
@@ -164,6 +163,6 @@ class RP(OIDCFederationEntity):
         :return: provider metadata from the JWS
         """
         try:
-            return self._verify(signed_metadata, [provider_signing_key])
+            return self._verify(signed_metadata, [provider_signing_key]).msg
         except JWKESTException as e:
             raise OIDCFederationError("The provider's signed metadata could not be verified.")

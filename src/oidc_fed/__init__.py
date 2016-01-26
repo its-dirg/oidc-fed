@@ -87,7 +87,9 @@ class OIDCFederationEntity(object):
         :param keys: possible keys to verify the signature with
         :return: payload of the JWS
         """
-        return JWS().verify_compact(jws, keys=keys)
+        unpacked = JWS()
+        unpacked.verify_compact(jws, keys=keys)
+        return unpacked
 
     def _verify_signature_chain(self, software_statements, signing_key):
         # type: (Sequence[str], str) -> Tuple[str, Key]
@@ -101,7 +103,7 @@ class OIDCFederationEntity(object):
         """
         software_statement = self._verify_software_statements(software_statements)
 
-        root_key = keyrep(json.loads(software_statement["root_key"]))
+        root_key = keyrep(json.loads(software_statement.msg["root_key"]))
         signing_key = self._verify_signing_key(signing_key, root_key)
         return software_statement, signing_key
 
@@ -116,7 +118,7 @@ class OIDCFederationEntity(object):
         :return: key contained in the JWS
         """
         try:
-            signing_key = self._verify(signing_key, keys=[verification_key])
+            signing_key = self._verify(signing_key, keys=[verification_key]).msg
         except JWKESTException as e:
             raise OIDCFederationError("The provider's signing key could not be verified.")
 
