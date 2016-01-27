@@ -20,23 +20,23 @@ class TestOIDCFederationEntity(object):
     def test_key_init(self):
         entity = OIDCFederationEntity(sym_key(), [], None, None)
 
-        assert JWS().verify_compact(entity.signed_intermediary_key, keys=[entity.root_key])
-        assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediary_key])
+        assert JWS().verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
+        assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
 
     def test_key_rotation(self):
         entity = OIDCFederationEntity(sym_key(), [], None, None)
 
-        entity.rotate_intermediary_key()
+        entity.rotate_intermediate_key()
         entity.rotate_jwks()
-        assert JWS().verify_compact(entity.signed_intermediary_key, keys=[entity.root_key])
-        assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediary_key])
+        assert JWS().verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
+        assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
 
     def test_accept_provider_signing_key_signed_by_software_statement_root_key(self):
         root_key = rsa_key()
-        op_intermediary_key = rsa_key()
+        op_intermediate_key = rsa_key()
         entity = OIDCFederationEntity(None, [], None, None)
 
-        signing_key = JWS(op_intermediary_key.serialize(private=False),
+        signing_key = JWS(op_intermediate_key.serialize(private=False),
                              alg=root_key.alg).sign_compact(keys=[root_key])
 
         assert entity._verify_signing_key(signing_key, root_key)
@@ -63,11 +63,11 @@ class TestOIDCFederationEntity(object):
 
     def test_reject_entity_signing_key_not_signed_by_software_statement_root_key(self):
         root_key = rsa_key()
-        intermediary_key = rsa_key()
+        intermediate_key = rsa_key()
 
-        # sign intermediary key with key other than op_root_key
+        # sign intermediate key with key other than op_root_key
         other_key = rsa_key()
-        signing_key = JWS(intermediary_key.serialize(private=False),
+        signing_key = JWS(intermediate_key.serialize(private=False),
                              alg=other_key.alg).sign_compact(keys=[other_key])
 
         entity = OIDCFederationEntity(None, [], None, None)

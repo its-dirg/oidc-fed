@@ -32,19 +32,19 @@ class OIDCFederationEntity(object):
         self.federation_keys = federation_keys
         self.signed_jwks_uri = signed_jwks_uri
 
-        self.intermediary_key = None
+        self.intermediate_key = None
         self.jwks = None
 
-        self.rotate_intermediary_key()
+        self.rotate_intermediate_key()
         self.rotate_jwks()
 
     @property
-    def signed_intermediary_key(self):
+    def signed_intermediate_key(self):
         # type: () -> str
         """
-        :return: JWS containing the intermediary key
+        :return: JWS containing the intermediate key
         """
-        return self._sign(self.intermediary_key.serialize(private=False), self.root_key)
+        return self._sign(self.intermediate_key.serialize(private=False), self.root_key)
 
     @property
     def signed_jwks(self):
@@ -52,7 +52,7 @@ class OIDCFederationEntity(object):
         """
         :return: JWS containing the JWKS
         """
-        return self._sign(self.jwks.export_jwks(), self.intermediary_key)
+        return self._sign(self.jwks.export_jwks(), self.intermediate_key)
 
     @property
     def software_statements_jws(self):
@@ -62,10 +62,10 @@ class OIDCFederationEntity(object):
         """
         return [ss.jwt.pack() for ss in self.software_statements]
 
-    def rotate_intermediary_key(self):
+    def rotate_intermediate_key(self):
         # type: () -> None
-        """Replace the current intermediary key with a fresh one."""
-        self.intermediary_key = RSAKey(key=RSA.generate(1024), use="sig", alg="RS256")
+        """Replace the current intermediate key with a fresh one."""
+        self.intermediate_key = RSAKey(key=RSA.generate(1024), use="sig", alg="RS256")
 
     def rotate_jwks(self):
         # type: () -> None
@@ -106,7 +106,7 @@ class OIDCFederationEntity(object):
         signature of a signing key (in the form of a JWS).
 
         :param software_statements: all software statements from the provider
-        :param signing_key: the entity's intermediary signing key
+        :param signing_key: the entity's intermediate signing key
         :return:
         """
         software_statement = self._verify_software_statements(software_statements)
@@ -118,9 +118,9 @@ class OIDCFederationEntity(object):
     def _verify_signing_key(self, signing_key, verification_key):
         # type: (str, Key) -> Key
         """
-        Verify the signature of an intermediary signing key.
+        Verify the signature of an intermediate signing key.
 
-        :param signing_key: JWS containing the providers intermediary key
+        :param signing_key: JWS containing the providers intermediate key
         :param verification_key: key to verify the signature with
         :raise OIDCFederationError: if the signature could not be verified
         :return: key contained in the JWS

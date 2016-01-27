@@ -106,7 +106,7 @@ class RP(OIDCFederationEntity):
         """
         registration_request = FederationRegistrationRequest(**client_registration_data)
         registration_request["signed_jwks_uri"] = self.signed_jwks_uri
-        registration_request["signing_key"] = self.signed_intermediary_key
+        registration_request["signing_key"] = self.signed_intermediate_key
         registration_request["software_statements"] = self.software_statements_jws
         return registration_request
 
@@ -118,8 +118,8 @@ class RP(OIDCFederationEntity):
         :param registration_request: registration request
         :return: signed registration request
         """
-        signer = SignedHttpRequest(self.intermediary_key)
-        return signer.sign(self.intermediary_key.alg, body=registration_request.to_json())
+        signer = SignedHttpRequest(self.intermediate_key)
+        return signer.sign(self.intermediate_key.alg, body=registration_request.to_json())
 
     def _validate_provider_configuration(self, provider_config):
         # type: (FederationProviderConfigurationResponse) -> FederationProviderConfigurationResponse

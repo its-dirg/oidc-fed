@@ -37,13 +37,13 @@ class TestOP(object):
         provider_config = op.provider_configuration()
         assert provider_config["issuer"] == issuer
         assert provider_config["software_statements"] == [op_software_statement]
-        assert provider_config["signing_key"] == op.signed_intermediary_key
+        assert provider_config["signing_key"] == op.signed_intermediate_key
         assert provider_config["signed_jwks_uri"] == signed_jwks_uri
 
         expected_metadata_parameters = set(provider_config.keys())
         expected_metadata_parameters.remove("signed_metadata")
         actual_metadata_parameters = JWS().verify_compact(provider_config["signed_metadata"],
-                                                          keys=[op.intermediary_key]).keys()
+                                                          keys=[op.intermediate_key]).keys()
         assert set(actual_metadata_parameters) == expected_metadata_parameters
 
     def test_register_client(self):
@@ -57,21 +57,21 @@ class TestOP(object):
         op = OP(None, None, [op_software_statement], [federation_key], None)
 
         rp_root_key = rsa_key()
-        rp_intermediary_key = rsa_key()
-        rp_signed_intermediary_key = JWS(json.dumps(rp_intermediary_key.serialize(private=False)),
+        rp_intermediate_key = rsa_key()
+        rp_signed_intermediate_key = JWS(json.dumps(rp_intermediate_key.serialize(private=False)),
                                          alg=rp_root_key.alg).sign_compact(keys=[rp_root_key])
         rp_software_statement = federation.create_software_statement(
                 dict(root_key=json.dumps(rp_root_key.serialize(private=False)),
                      response_types=["code"]))
         client_metadata = {
-            "signing_key": rp_signed_intermediary_key,
+            "signing_key": rp_signed_intermediate_key,
             "signed_jwks_uri": "https://rp.example.com/signed_jwks",
             "software_statements": [rp_software_statement],
             "redirect_uris": ["https://rp.example.com"],
             "response_types": ["id_token"]
         }
         req = FederationRegistrationRequest(**client_metadata)
-        signature = SignedHttpRequest(rp_intermediary_key).sign(rp_intermediary_key.alg,
+        signature = SignedHttpRequest(rp_intermediate_key).sign(rp_intermediate_key.alg,
                                                                 body=req.to_json())
 
         client_metadata = op.register_client({"Authorization": "pop {}".format(signature)},

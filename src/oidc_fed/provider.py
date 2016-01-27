@@ -39,12 +39,12 @@ class OP(OIDCFederationEntity):
         :return: the provider configuration information
         """
         extra_params = dict(software_statements=self.software_statements_jws,
-                            signing_key=self.signed_intermediary_key,
+                            signing_key=self.signed_intermediate_key,
                             signed_jwks_uri=self.signed_jwks_uri)
         provider_config = self.provider.create_providerinfo(
                 pcr_class=FederationProviderConfigurationResponse, setup=extra_params)
         provider_config["signed_metadata"] = self._sign(provider_config.to_dict(),
-                                                        self.intermediary_key)
+                                                        self.intermediate_key)
 
         return provider_config
 
