@@ -54,6 +54,14 @@ class OIDCFederationEntity(object):
         """
         return self._sign(self.jwks.export_jwks(), self.intermediary_key)
 
+    @property
+    def software_statements_jws(self):
+        # type: () -> List[str]
+        """
+        :return: all the entity's software statements as JWS
+        """
+        return [ss.jwt.pack() for ss in self.software_statements]
+
     def rotate_intermediary_key(self):
         # type: () -> None
         """Replace the current intermediary key with a fresh one."""
@@ -142,7 +150,3 @@ class OIDCFederationEntity(object):
 
         raise OIDCFederationError(
                 "No software statement from provider issued by common federation.")
-
-    def _recreate_software_statement(self, software_statement):
-        # type (JWS) -> str
-        return software_statement.jwt.pack(software_statement.jwt.part[1:])

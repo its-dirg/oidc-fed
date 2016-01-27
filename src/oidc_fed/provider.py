@@ -38,8 +38,7 @@ class OP(OIDCFederationEntity):
         Generate the provider configuration information.
         :return: the provider configuration information
         """
-        extra_params = dict(software_statements=[self._recreate_software_statement(ss) for ss in
-                                                 self.software_statements],
+        extra_params = dict(software_statements=self.software_statements_jws,
                             signing_key=self.signed_intermediary_key,
                             signed_jwks_uri=self.signed_jwks_uri)
         provider_config = self.provider.create_providerinfo(
@@ -94,8 +93,7 @@ class OP(OIDCFederationEntity):
             return result
 
         registration_response = FederationRegistrationResponse(**result.to_dict())
-        registration_response["provider_software_statement"] = self._recreate_software_statement(
-                provider_software_statement)
+        registration_response["provider_software_statement"] = provider_software_statement.jwt.pack()
         return registration_response
 
     def _find_software_statement_for_federation(self, federation_kid):
