@@ -7,10 +7,10 @@ from oic.oic import PREFERENCE2PROVIDER
 from oic.oic.provider import Provider
 from oic.utils.http_util import Response
 
-from oidc_fed import OIDCFederationEntity, OIDCFederationError
-from oidc_fed.messages import FederationProviderConfigurationResponse, \
-    FederationRegistrationRequest, \
-    FederationRegistrationResponse
+from . import OIDCFederationEntity, OIDCFederationError
+from .messages import (FederationProviderConfigurationResponse,
+                       FederationRegistrationRequest,
+                       FederationRegistrationResponse)
 
 
 class OP(OIDCFederationEntity):
@@ -93,7 +93,8 @@ class OP(OIDCFederationEntity):
             return result
 
         registration_response = FederationRegistrationResponse(**result.to_dict())
-        registration_response["provider_software_statement"] = provider_software_statement.jwt.pack()
+        registration_response[
+            "provider_software_statement"] = provider_software_statement.jwt.pack()
         return registration_response
 
     def _find_software_statement_for_federation(self, federation_kid):

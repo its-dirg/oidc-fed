@@ -5,11 +5,11 @@ from jwkest import JWKESTException
 from oic.exception import MessageException
 from oic.extension.signed_http_req import SignedHttpRequest
 
-from oidc_fed import OIDCFederationError, OIDCFederationEntity
-from oidc_fed.messages import (FederationProviderConfigurationResponse,
-                               FederationRegistrationRequest,
-                               FederationRegistrationResponse)
-from oidc_fed.util import FederationClient
+from . import OIDCFederationError, OIDCFederationEntity
+from .messages import (FederationProviderConfigurationResponse,
+                       FederationRegistrationRequest,
+                       FederationRegistrationResponse)
+from .util import FederationClient
 
 logger = logging.getLogger(__name__)
 
