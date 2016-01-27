@@ -28,9 +28,7 @@ class OIDCFederationEntity(object):
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         """
 
-        if not root_key.kid:
-            raise OIDCFederationError(
-                "The root key must contain a key id (JWK header parameter 'kid').")
+        verify_signing_key(root_key)
 
         self.root_key = root_key
         self.software_statements = [self._verify(ss, federation_keys) for ss in software_statements]
@@ -155,3 +153,12 @@ class OIDCFederationEntity(object):
 
         raise OIDCFederationError(
                 "No software statement from provider issued by common federation.")
+
+
+def verify_signing_key(signing_key):
+    if not signing_key.alg:
+        raise OIDCFederationError("Specified signing key must have 'alg' set.")
+    if not signing_key.kid:
+        raise OIDCFederationError("Specified signing key must have 'kid' set.")
+    if signing_key.use != "sig":
+        raise OIDCFederationError("Specified signing key must have 'use=sig'.")

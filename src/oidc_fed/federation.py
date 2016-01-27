@@ -2,6 +2,8 @@ import json
 
 from jwkest.jws import JWS
 
+from . import verify_signing_key
+
 
 class Federation(object):
     def __init__(self, signing_key, required_attributes=None, policy=None):
@@ -12,8 +14,8 @@ class Federation(object):
         :param policy: additional attributes that should be included in the signed software statement
         :raise ValueError: if the specified signing missing 'alg' or does not have 'use=sig'
         """
-        if not signing_key.alg or signing_key.use != "sig":
-            raise ValueError("Specified signing key must have 'alg' set and 'use=sig'")
+
+        verify_signing_key(signing_key)
 
         self.signing_key = signing_key
         self.required_attributes = required_attributes

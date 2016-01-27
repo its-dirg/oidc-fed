@@ -42,9 +42,9 @@ class TestOIDCFederationEntity(object):
         assert entity._verify_signing_key(signing_key, root_key)
 
     def test_reject_entity_with_no_common_federation(self):
-        fed1_key = SYMKey(k="one_key", alg="HS256", use="sig")
+        fed1_key = sym_key()
         federation1 = Federation(fed1_key)
-        federation2 = Federation(SYMKey(k="other_key1", alg="HS256", use="sig"))
+        federation2 = Federation(sym_key())
         rp_software_statement = federation1.create_software_statement({"foo": "bar"})
         op_software_statement = federation2.create_software_statement({"abc": "xyz"})
 
@@ -53,7 +53,7 @@ class TestOIDCFederationEntity(object):
             entity._verify_software_statements([op_software_statement])
 
     def test_accept_entity_with_common_federation(self):
-        fed1_key = SYMKey(k="one_key", alg="HS256", use="sig")
+        fed1_key = sym_key()
         federation = Federation(fed1_key)
         rp_software_statement = federation.create_software_statement({"foo": "bar"})
         op_software_statement = federation.create_software_statement({"abc": "xyz"})
@@ -74,9 +74,24 @@ class TestOIDCFederationEntity(object):
         with pytest.raises(OIDCFederationError):
             entity._verify_signing_key(signing_key, root_key)
 
-    def test_reject_root_key_without_kid(self):
-        signing_key = SYMKey()
-        with pytest.raises(OIDCFederationError) as exc:
-            OIDCFederationEntity(signing_key, [], None, None)
 
+class TestVerifySigningKey(object):
+    def test_reject_key_with_wrong_use(self):
+        with pytest.raises(OIDCFederationError) as exc:
+            Federation(SYMKey(use="enc", alg="HS256", kid="foo"))  # encryption usage
+        assert "use" in str(exc.value)
+
+    def test_reject_key_with_no_use(self):
+        with pytest.raises(OIDCFederationError) as exc:
+            Federation(SYMKey(use="", alg="HS256", kid="foo"))  # unspecified usage
+        assert "use" in str(exc.value)
+
+    def test_reject_key_without_algorithm(self):
+        with pytest.raises(OIDCFederationError) as exc:
+            Federation(SYMKey(use="sig", kid="foo"))
+        assert "alg" in str(exc.value)
+
+    def test_reject_key_without_kid(self):
+        with pytest.raises(OIDCFederationError) as exc:
+            Federation(SYMKey(use="sig", alg="HS256"))
         assert "kid" in str(exc.value)

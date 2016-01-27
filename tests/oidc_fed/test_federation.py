@@ -1,13 +1,15 @@
 import pytest
 from jwkest.jwk import SYMKey
 from jwkest.jws import JWS
+from oic.oauth2 import rndstr
+
 from oidc_fed.federation import Federation
 
 
 class TestFederation(object):
     @pytest.fixture(autouse=True)
     def create_signing_key(self):
-        self.signing_key = SYMKey(key="abcdef", use="sig", alg="HS256")
+        self.signing_key = SYMKey(key="abcdef", use="sig", alg="HS256", kid=rndstr(4))
 
     def test_create_software_statement(self):
         registration_data = {
@@ -42,14 +44,3 @@ class TestFederation(object):
 
         with pytest.raises(ValueError) as exc:
             federation.create_software_statement(registration_data)
-
-    def test_federation_rejectkey_with_wrong_use(self):
-        with pytest.raises(ValueError) as exc:
-            Federation(SYMKey(use="enc"))  # encryption key
-
-        with pytest.raises(ValueError) as exc:
-            Federation(SYMKey(use=""))  # unspecified usage
-
-    def test_federation_reject_signing_key_without_algorithm(self):
-        with pytest.raises(ValueError) as exc:
-            Federation(SYMKey(use="sig"))
