@@ -18,23 +18,29 @@ def sym_key():
 
 class TestOIDCFederationEntity(object):
     def test_key_init(self):
-        entity = OIDCFederationEntity(sym_key(), [], None, None)
+        name = "https://entity.example.com"
+        entity = OIDCFederationEntity(name, sym_key(), [], None, None)
 
         assert JWS().verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
+        assert entity.intermediate_key.kid.startswith(name)  # has scoped kid
         assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
+        assert entity.jwks[""][0].keys()[0].kid.startswith(name)  # has scoped kid
 
     def test_key_rotation(self):
-        entity = OIDCFederationEntity(sym_key(), [], None, None)
+        name = "https://entity.example.com"
+        entity = OIDCFederationEntity(name, sym_key(), [], None, None)
 
         entity.rotate_intermediate_key()
         entity.rotate_jwks()
         assert JWS().verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
+        assert entity.intermediate_key.kid.startswith(name)  # has scoped kid
         assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
+        assert entity.jwks[""][0].keys()[0].kid.startswith(name)  # has scoped kid
 
     def test_accept_provider_signing_key_signed_by_software_statement_root_key(self):
         root_key = rsa_key()
         op_intermediate_key = rsa_key()
-        entity = OIDCFederationEntity(sym_key(), [], None, None)
+        entity = OIDCFederationEntity(None, sym_key(), [], None, None)
 
         signing_key = JWS(op_intermediate_key.serialize(private=False),
                           alg=root_key.alg).sign_compact(keys=[root_key])
@@ -48,7 +54,7 @@ class TestOIDCFederationEntity(object):
         rp_software_statement = federation1.create_software_statement({"foo": "bar"})
         op_software_statement = federation2.create_software_statement({"abc": "xyz"})
 
-        entity = OIDCFederationEntity(sym_key(), [rp_software_statement], [fed1_key], None)
+        entity = OIDCFederationEntity(None, sym_key(), [rp_software_statement], [fed1_key], None)
         with pytest.raises(OIDCFederationError):
             entity._verify_software_statements([op_software_statement])
 
@@ -58,7 +64,7 @@ class TestOIDCFederationEntity(object):
         rp_software_statement = federation.create_software_statement({"foo": "bar"})
         op_software_statement = federation.create_software_statement({"abc": "xyz"})
 
-        entity = OIDCFederationEntity(sym_key(), [rp_software_statement], [fed1_key], None)
+        entity = OIDCFederationEntity(None, sym_key(), [rp_software_statement], [fed1_key], None)
         assert entity._verify_software_statements([op_software_statement])
 
     def test_reject_entity_signing_key_not_signed_by_software_statement_root_key(self):
@@ -70,7 +76,7 @@ class TestOIDCFederationEntity(object):
         signing_key = JWS(intermediate_key.serialize(private=False),
                           alg=other_key.alg).sign_compact(keys=[other_key])
 
-        entity = OIDCFederationEntity(sym_key(), [], None, None)
+        entity = OIDCFederationEntity(None, sym_key(), [], None, None)
         with pytest.raises(OIDCFederationError):
             entity._verify_signing_key(signing_key, root_key)
 

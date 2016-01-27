@@ -60,14 +60,14 @@ class TestRP(object):
                       body=json.dumps(provider_config), status=200,
                       content_type="application/json")
 
-        rp = RP(sym_key(), [], [federation_key], None)
+        rp = RP(None, sym_key(), [], [federation_key], None)
         provider_config = rp.get_provider_configuration(ISSUER)
         assert provider_config["issuer"] == ISSUER
         # value from signed metadata overrides plain value
         assert provider_config["id_token_signing_alg_values_supported"] == ["RS512"]
 
     def test_reject_provider_configuration_with_missing_parameter(self):
-        rp = RP(sym_key(), [], None, None)
+        rp = RP(None, sym_key(), [], None, None)
         with pytest.raises(OIDCFederationError) as exc:
             # default provider config missing all extra required attributes of FederationProviderConfigurationResponse
             rp._validate_provider_configuration(
@@ -76,7 +76,7 @@ class TestRP(object):
     def test_reject_signed_metadata_not_signed_by_provider_intermediate_key(self):
         op_intermediate_key = rsa_key()
         other_key = rsa_key()
-        rp = RP(sym_key(), [], None, None)
+        rp = RP(None, sym_key(), [], None, None)
         signed_provider_metadata = JWS(json.dumps(DEFAULT_PROVIDER_CONFIG),
                                        alg=other_key.alg).sign_compact(keys=[other_key])
 
@@ -85,7 +85,7 @@ class TestRP(object):
 
     def test_accept_signed_metadata_provider_intermediate_key(self):
         op_intermediate_key = rsa_key()
-        rp = RP(sym_key(), [], None, None)
+        rp = RP(None, sym_key(), [], None, None)
         signed_provider_metadata = JWS(json.dumps(DEFAULT_PROVIDER_CONFIG),
                                        alg=op_intermediate_key.alg).sign_compact(
                 keys=[op_intermediate_key])
@@ -98,7 +98,7 @@ class TestRP(object):
         rp_root_key = rsa_key()
         rp_software_statement = Federation(federation_key).create_software_statement(
                 dict(redirect_uris=["https://rp.example.com"]))
-        rp = RP(rp_root_key, [rp_software_statement], [federation_key], signed_jwks_uri)
+        rp = RP(None, rp_root_key, [rp_software_statement], [federation_key], signed_jwks_uri)
 
         reg_req = rp._create_registration_request({})
         assert reg_req.verify()
@@ -108,7 +108,7 @@ class TestRP(object):
 
     def test_sign_registration_request(self):
         rp_root_key = rsa_key()
-        rp = RP(rp_root_key, [], None, None)
+        rp = RP(None, rp_root_key, [], None, None)
 
         reg_req = FederationRegistrationRequest(**{"foo": "bar"})
         signed = rp._sign_registration_request(reg_req)
@@ -124,7 +124,7 @@ class TestRP(object):
         op_software_statement = Federation(federation_key).create_software_statement(
                 dict(root_key=json.dumps(op_root_key.serialize(private=False)),
                      scopes_supported=["openid", "test_scope"]))
-        rp = RP(sym_key(), [], [federation_key], None)
+        rp = RP(None, sym_key(), [], [federation_key], None)
 
         signed_jwks_uri = "{}/signed_jwks".format(ISSUER)
         # fake provider discovery
@@ -148,7 +148,7 @@ class TestRP(object):
         assert rp.client.keyjar[ISSUER][0].keys()[0].kid == expected_kid
 
     def test_handle_registration_response_fail_when_wrong_software_statement(self):
-        rp = RP(sym_key(), [], None, None)
+        rp = RP(None, sym_key(), [], None, None)
         rp.client.provider_info = FederationProviderConfigurationResponse(
                 **dict(signing_key="whatever"))  # fake provider discovery
 
@@ -185,7 +185,7 @@ class TestRP(object):
         responses.add(responses.GET, signed_jwks_uri, body=jws, status=200,
                       content_type="application/jose")
 
-        rp = RP(rp_root_key, [rp_software_statement], [federation_key], None)
+        rp = RP(None, rp_root_key, [rp_software_statement], [federation_key], None)
         rp.client.provider_info = FederationProviderConfigurationResponse(
                 **dict(issuer=ISSUER, signing_key=op_signed_intermediate_key,
                        registration_endpoint=registration_endpoint,

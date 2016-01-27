@@ -6,6 +6,7 @@
     :license: APACHE 2.0, see LICENSE for more details.
 """
 import json
+import uuid
 
 from Crypto.PublicKey import RSA
 from jwkest import JWKESTException
@@ -19,9 +20,10 @@ class OIDCFederationError(Exception):
 
 
 class OIDCFederationEntity(object):
-    def __init__(self, root_key, software_statements, federation_keys, signed_jwks_uri):
-        # type: (Key, Sequence[str], Sequence[Key], str) -> None
+    def __init__(self, name, root_key, software_statements, federation_keys, signed_jwks_uri):
+        # type: (str, Key, Sequence[str], Sequence[Key], str) -> None
         """
+        :param name: URI identifying the entity
         :param root_key: root signing key for this entity
         :param software_statements: all software statements isssued by federations for this entity
         :param federation_keys: public keys from all federations this entity is part of
@@ -29,8 +31,10 @@ class OIDCFederationEntity(object):
         """
 
         verify_signing_key(root_key)
-
         self.root_key = root_key
+
+        self.name = name
+
         self.software_statements = [self._verify(ss, federation_keys) for ss in software_statements]
         self.federation_keys = federation_keys
         self.signed_jwks_uri = signed_jwks_uri
@@ -68,15 +72,24 @@ class OIDCFederationEntity(object):
     def rotate_intermediate_key(self):
         # type: () -> None
         """Replace the current intermediate key with a fresh one."""
-        self.intermediate_key = RSAKey(key=RSA.generate(1024), use="sig", alg="RS256")
+        self.intermediate_key = RSAKey(key=RSA.generate(1024), use="sig", alg="RS256",
+                                       kid=self._create_kid())
 
     def rotate_jwks(self):
         # type: () -> None
         """Replace the current JWKS with a fresh one."""
         self.jwks = KeyJar()
         kb = KeyBundle(keyusage=["enc", "sig"])
-        kb.append(RSAKey(key=RSA.generate(1024)))
+        kb.append(RSAKey(key=RSA.generate(1024), kid=self._create_kid()))
         self.jwks.add_kb("", kb)
+
+    def _create_kid(self):
+        # type () -> str
+        """
+        Create a scope (by the entity's name) key id.
+        :return: a new key id
+        """
+        return "{}/{}".format(self.name, uuid.uuid4())
 
     def _sign(self, data, key):
         # type: (Mapping[str, Union[str, Sequence[str]]], Key) -> str

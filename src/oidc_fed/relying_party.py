@@ -15,15 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 class RP(OIDCFederationEntity):
-    def __init__(self, root_key, software_statements, federation_keys, signed_jwks_uri):
-        # type: (Key, Sequence[str], Sequence[Key], str) -> None
+    def __init__(self, name, root_key, software_statements, federation_keys, signed_jwks_uri):
+        # type: (str, Key, Sequence[str], Sequence[Key], str) -> None
         """
+        :param name: URI identifying this RP
         :param root_key: root signing key for this RP
         :param software_statements: all software statements isssued by federations for this RP
         :param federation_keys: public keys from all federations this RP is part of
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         """
-        super(RP, self).__init__(root_key, software_statements, federation_keys, signed_jwks_uri)
+        super(RP, self).__init__(name, root_key, software_statements, federation_keys,
+                                 signed_jwks_uri)
 
         self.client = FederationClient()
 
