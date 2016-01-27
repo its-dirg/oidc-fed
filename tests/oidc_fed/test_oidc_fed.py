@@ -34,10 +34,10 @@ class TestOIDCFederationEntity(object):
     def test_accept_provider_signing_key_signed_by_software_statement_root_key(self):
         root_key = rsa_key()
         op_intermediate_key = rsa_key()
-        entity = OIDCFederationEntity(None, [], None, None)
+        entity = OIDCFederationEntity(sym_key(), [], None, None)
 
         signing_key = JWS(op_intermediate_key.serialize(private=False),
-                             alg=root_key.alg).sign_compact(keys=[root_key])
+                          alg=root_key.alg).sign_compact(keys=[root_key])
 
         assert entity._verify_signing_key(signing_key, root_key)
 
@@ -48,7 +48,7 @@ class TestOIDCFederationEntity(object):
         rp_software_statement = federation1.create_software_statement({"foo": "bar"})
         op_software_statement = federation2.create_software_statement({"abc": "xyz"})
 
-        entity = OIDCFederationEntity(None, [rp_software_statement], [fed1_key], None)
+        entity = OIDCFederationEntity(sym_key(), [rp_software_statement], [fed1_key], None)
         with pytest.raises(OIDCFederationError):
             entity._verify_software_statements([op_software_statement])
 
@@ -58,7 +58,7 @@ class TestOIDCFederationEntity(object):
         rp_software_statement = federation.create_software_statement({"foo": "bar"})
         op_software_statement = federation.create_software_statement({"abc": "xyz"})
 
-        entity = OIDCFederationEntity(None, [rp_software_statement], [fed1_key], None)
+        entity = OIDCFederationEntity(sym_key(), [rp_software_statement], [fed1_key], None)
         assert entity._verify_software_statements([op_software_statement])
 
     def test_reject_entity_signing_key_not_signed_by_software_statement_root_key(self):
@@ -68,8 +68,15 @@ class TestOIDCFederationEntity(object):
         # sign intermediate key with key other than op_root_key
         other_key = rsa_key()
         signing_key = JWS(intermediate_key.serialize(private=False),
-                             alg=other_key.alg).sign_compact(keys=[other_key])
+                          alg=other_key.alg).sign_compact(keys=[other_key])
 
-        entity = OIDCFederationEntity(None, [], None, None)
+        entity = OIDCFederationEntity(sym_key(), [], None, None)
         with pytest.raises(OIDCFederationError):
             entity._verify_signing_key(signing_key, root_key)
+
+    def test_reject_root_key_without_kid(self):
+        signing_key = SYMKey()
+        with pytest.raises(OIDCFederationError) as exc:
+            OIDCFederationEntity(signing_key, [], None, None)
+
+        assert "kid" in str(exc.value)

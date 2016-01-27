@@ -54,7 +54,7 @@ class TestOP(object):
         op_software_statement = federation.create_software_statement(
                 dict(root_key=json.dumps(op_root_key.serialize(private=False)),
                      response_types_supported=["code"]))
-        op = OP(None, None, [op_software_statement], [federation_key], None)
+        op = OP(None, op_root_key, [op_software_statement], [federation_key], None)
 
         rp_root_key = rsa_key()
         rp_intermediate_key = rsa_key()
@@ -84,13 +84,13 @@ class TestOP(object):
 
     def test_register_client_reject_request_without_authorization(self):
         with pytest.raises(OIDCFederationError) as exc:
-            OP(None, None, [], None, None).register_client({}, None)
+            OP(None, sym_key(), [], None, None).register_client({}, None)
 
         assert "Authorization" in str(exc.value)
 
     def test_register_client_rejects_request_with_wrong_auth_scheme(self):
         with pytest.raises(OIDCFederationError) as exc:
-            OP(None, None, [], None, None).register_client({"Authorization": "Basic foobar"},
+            OP(None, sym_key(), [], None, None).register_client({"Authorization": "Basic foobar"},
                                                            None)
 
         assert "Authentication scheme" in str(exc.value)

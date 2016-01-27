@@ -27,6 +27,11 @@ class OIDCFederationEntity(object):
         :param federation_keys: public keys from all federations this entity is part of
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
         """
+
+        if not root_key.kid:
+            raise OIDCFederationError(
+                "The root key must contain a key id (JWK header parameter 'kid').")
+
         self.root_key = root_key
         self.software_statements = [self._verify(ss, federation_keys) for ss in software_statements]
         self.federation_keys = federation_keys
