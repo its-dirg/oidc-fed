@@ -22,6 +22,14 @@ class TestFederation(object):
 
         assert all(item in software_statement.items() for item in registration_data.items())
 
+    def test_issued_software_statement_contains_kid(self):
+        federation = Federation(self.signing_key)
+
+        jws = federation.create_software_statement({})
+        _jws = JWS()
+        _jws.verify_compact(jws, keys=[self.signing_key])
+        assert _jws.jwt.headers["kid"] == self.signing_key.kid
+
     def test_create_software_statement_with_policy(self):
         registration_data = {
             "foo": "bar"

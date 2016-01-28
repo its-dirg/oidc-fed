@@ -17,14 +17,27 @@ def sym_key():
 
 
 class TestOIDCFederationEntity(object):
+    def check_intermediate_key(self, entity):
+        assert entity.intermediate_key.kid.startswith(entity.name)  # has scoped kid
+
+        _jws = JWS()
+        assert _jws.verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
+        assert _jws.jwt.headers["kid"] == entity.root_key.kid
+
+    def check_jwks(self, entity):
+        # all keys in JWKS has scoped kid
+        assert all(key.kid.startswith(entity.name) for key in entity.jwks[""][0].keys())
+
+        _jws = JWS()
+        assert _jws.verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
+        assert _jws.jwt.headers["kid"] == entity.intermediate_key.kid
+
     def test_key_init(self):
         name = "https://entity.example.com"
         entity = OIDCFederationEntity(name, sym_key(), [], None, None)
 
-        assert JWS().verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
-        assert entity.intermediate_key.kid.startswith(name)  # has scoped kid
-        assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
-        assert entity.jwks[""][0].keys()[0].kid.startswith(name)  # has scoped kid
+        self.check_intermediate_key(entity)
+        self.check_jwks(entity)
 
     def test_key_rotation(self):
         name = "https://entity.example.com"
@@ -32,10 +45,8 @@ class TestOIDCFederationEntity(object):
 
         entity.rotate_intermediate_key()
         entity.rotate_jwks()
-        assert JWS().verify_compact(entity.signed_intermediate_key, keys=[entity.root_key])
-        assert entity.intermediate_key.kid.startswith(name)  # has scoped kid
-        assert JWS().verify_compact(entity.signed_jwks, keys=[entity.intermediate_key])
-        assert entity.jwks[""][0].keys()[0].kid.startswith(name)  # has scoped kid
+        self.check_intermediate_key(entity)
+        self.check_jwks(entity)
 
     def test_accept_provider_signing_key_signed_by_software_statement_root_key(self):
         root_key = rsa_key()

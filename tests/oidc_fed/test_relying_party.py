@@ -112,6 +112,9 @@ class TestRP(object):
 
         reg_req = FederationRegistrationRequest(**{"foo": "bar"})
         signed = rp._sign_registration_request(reg_req)
+        _jws = JWS()
+        assert _jws.is_jws(signed)
+        assert _jws.jwt.headers["kid"] == rp.intermediate_key.kid
         assert SignedHttpRequest(rp.intermediate_key).verify(signed, body=reg_req.to_json())
 
     @responses.activate

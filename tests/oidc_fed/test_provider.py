@@ -39,6 +39,9 @@ class TestOP(object):
         assert provider_config["software_statements"] == [op_software_statement]
         assert provider_config["signing_key"] == op.signed_intermediate_key
         assert provider_config["signed_jwks_uri"] == signed_jwks_uri
+        _jws = JWS()
+        assert _jws.is_jws(provider_config["signed_metadata"])
+        assert _jws.jwt.headers["kid"] == op.intermediate_key.kid
 
         expected_metadata_parameters = set(provider_config.keys())
         expected_metadata_parameters.remove("signed_metadata")
