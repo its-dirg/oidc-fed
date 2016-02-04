@@ -64,7 +64,7 @@ class TestOP(object):
         rp_signed_intermediate_key = JWS(json.dumps(rp_intermediate_key.serialize(private=False)),
                                          alg=rp_root_key.alg).sign_compact(keys=[rp_root_key])
         rp_software_statement = federation.create_software_statement(
-                dict(root_key=json.dumps(rp_root_key.serialize(private=False)),
+                dict(root_key=rp_root_key.serialize(private=False),
                      response_types=["code"]))
         client_metadata = {
             "signing_key": rp_signed_intermediate_key,

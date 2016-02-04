@@ -127,7 +127,7 @@ class OIDCFederationEntity(object):
         """
         software_statement = self._verify_software_statements(software_statements)
 
-        root_key = keyrep(json.loads(software_statement.msg["root_key"]))
+        root_key = keyrep(software_statement.msg["root_key"])
         signing_key = self._verify_signing_key(signing_key, root_key)
         return software_statement, signing_key
 

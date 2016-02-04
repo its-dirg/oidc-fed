@@ -35,7 +35,7 @@ class TestRP(object):
         # key/signing stuff
         federation_key = sym_key()
         op_root_key = rsa_key()
-        op_registration_data = dict(root_key=json.dumps(op_root_key.serialize(private=False)))
+        op_registration_data = dict(root_key=op_root_key.serialize(private=False))
         op_software_statement = Federation(federation_key).create_software_statement(
                 op_registration_data)
         op_intermediate_key = rsa_key()
@@ -125,7 +125,7 @@ class TestRP(object):
         op_signed_intermediate_key = JWS(json.dumps(op_intermediate_key.serialize(private=False)),
                                          alg=op_root_key.alg).sign_compact(keys=[op_root_key])
         op_software_statement = Federation(federation_key).create_software_statement(
-                dict(root_key=json.dumps(op_root_key.serialize(private=False)),
+                dict(root_key=op_root_key.serialize(private=False),
                      scopes_supported=["openid", "test_scope"]))
         rp = RP(None, sym_key(), [], [federation_key], None)
 
@@ -177,7 +177,7 @@ class TestRP(object):
         op_signed_intermediate_key = JWS(json.dumps(op_intermediate_key.serialize(private=False)),
                                          alg=op_root_key.alg).sign_compact(keys=[op_root_key])
         op_software_statement = Federation(federation_key).create_software_statement(
-                dict(root_key=json.dumps(op_root_key.serialize(private=False)),
+                dict(root_key=op_root_key.serialize(private=False),
                      scopes_supported=["openid", "test_scope"]))
 
         # signed_jwks_uri
