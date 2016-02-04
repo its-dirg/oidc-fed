@@ -2,6 +2,7 @@ import logging
 
 import requests
 from jwkest import JWKESTException
+from jwkest.jwt import JWT
 from oic.exception import MessageException
 from oic.extension.signed_http_req import SignedHttpRequest
 
@@ -46,28 +47,36 @@ class RP(OIDCFederationEntity):
         return self.client.provider_info
 
     def register_with_provider(self, issuer, client_registration_data):
-        # type (str, Mapping[str, Any]) -> None
+        # type (str, Mapping[str, Any]) -> JWS
         """
         Register client with a provider.
 
         :param issuer: issuer URL for the provider to register with
         :param client_registration_data: client metadata to send in the registration request
+        :return: the client's software statement for the common federation dictated by the
+                 provider's software statement
         """
         if not self.client.provider_info or self.client.provider_info["issuer"] != issuer:
             self.get_provider_configuration(issuer)
 
         reg_req = self._create_registration_request(client_registration_data)
-        headers = {"Content-Type": "application/jose"}
-        request_data = self._sign_registration_request(reg_req)
+        request_signature = self._sign_registration_request(reg_req)
+        headers = {"Content-Type": "application/json",
+                   "Authorization": "pop {}".format(request_signature)}
         try:
             http_resp = requests.post(self.client.provider_info["registration_endpoint"],
-                                      request_data, headers=headers)
+                                      reg_req.to_json(), headers=headers)
         except requests.ConnectionError as e:
-            raise OIDCFederationError("Could send registration request to {}".format(issuer))
+            raise OIDCFederationError("Couldn't send registration request to {}: {}.".format(
+                    self.client.provider_info["registration_endpoint"], str(e)))
 
         logger.debug("Registration response from %s; status %s, Content-Type %s", http_resp.url,
                      http_resp.status_code, http_resp.headers["Content-Type"])
 
+        if http_resp.status_code != 201:
+            raise OIDCFederationError(
+                    "Registration with provider failed with HTTP status {}.".format(
+                            http_resp.status_code))
         registration_response = FederationRegistrationResponse(**http_resp.json())
         try:
             registration_response.verify()
@@ -75,6 +84,8 @@ class RP(OIDCFederationEntity):
             raise OIDCFederationError("Error in registration response: {}.".format(str(e)))
 
         self._handle_registration_response(registration_response)
+
+        return self._find_software_statement_for_federation(JWT().unpack(registration_response["provider_software_statement"]).headers["kid"])
 
     def _handle_registration_response(self, registration_response):
         # type: (requests.Response) -> None
