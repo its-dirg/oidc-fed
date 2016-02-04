@@ -144,7 +144,7 @@ class OIDCFederationEntity(object):
         try:
             signing_key = self._verify(signing_key, keys=[verification_key]).msg
         except JWKESTException as e:
-            raise OIDCFederationError("The provider's signing key could not be verified.")
+            raise OIDCFederationError("The entity's signing key could not be verified.")
 
         return keyrep(signing_key)
 
@@ -164,8 +164,7 @@ class OIDCFederationEntity(object):
             except JWKESTException as e:
                 pass
 
-        raise OIDCFederationError(
-                "No software statement from provider issued by common federation.")
+        raise OIDCFederationError("No software statement issued by known federation.")
 
 
 def verify_signing_key(signing_key):
