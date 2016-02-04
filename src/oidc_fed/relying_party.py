@@ -106,10 +106,15 @@ class RP(OIDCFederationEntity):
         :param client_registration_data: client metadata to send in the request
         :return: registration request
         """
-        registration_request = FederationRegistrationRequest(**client_registration_data)
-        registration_request["signed_jwks_uri"] = self.signed_jwks_uri
+
+        registration_data = self.client.create_registration_request().to_dict()
+        registration_data.update(client_registration_data)
+        registration_request = FederationRegistrationRequest(**registration_data)
         registration_request["signing_key"] = self.signed_intermediate_key
-        registration_request["software_statements"] = self.software_statements_jws
+        if "signed_jwks_uri" not in registration_request:
+            registration_request["signed_jwks_uri"] = self.signed_jwks_uri
+        if "software_statements" not in registration_request:
+            registration_request["software_statements"] = self.software_statements_jws
         return registration_request
 
     def _sign_registration_request(self, registration_request):
