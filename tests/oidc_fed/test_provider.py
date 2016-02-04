@@ -7,11 +7,14 @@ from jwkest.jwk import RSAKey, SYMKey
 from jwkest.jws import JWS
 from oic.extension.signed_http_req import SignedHttpRequest
 from oic.oauth2 import rndstr
+from oic.oic.provider import Provider
 
 from oidc_fed import OIDCFederationError
 from oidc_fed.federation import Federation
 from oidc_fed.messages import FederationRegistrationRequest, FederationRegistrationResponse
 from oidc_fed.provider import OP, RegistrationRequestVerification
+
+ISSUER = "https://op.example.com"
 
 
 def rsa_key():
@@ -23,41 +26,40 @@ def sym_key():
 
 
 class TestOP(object):
-    def test_provider_configuration(self):
-        issuer = "https://op.example.com"
-        signed_jwks_uri = "{}/signed_jwks".format(issuer)
-        federation_key = sym_key()
+    federation_key = sym_key()
+
+    @pytest.fixture(autouse=True)
+    def create_op(self):
         op_root_key = rsa_key()
         op_registration_data = dict(root_key=json.dumps(op_root_key.serialize(private=False)))
-        op_software_statement = Federation(federation_key).create_software_statement(
+        op_software_statement = Federation(TestOP.federation_key).create_software_statement(
                 op_registration_data)
+        self.op = OP(ISSUER, op_root_key, [op_software_statement], [TestOP.federation_key],
+                     "{}/signed_jwks".format(ISSUER),
+                     Provider(ISSUER, None, {}, None, None, None, None, None))
 
-        op = OP(issuer, op_root_key, [op_software_statement], [federation_key], signed_jwks_uri)
-
-        provider_config = op.provider_configuration()
-        assert provider_config["issuer"] == issuer
-        assert provider_config["software_statements"] == [op_software_statement]
-        assert provider_config["signing_key"] == op.signed_intermediate_key
-        assert provider_config["signed_jwks_uri"] == signed_jwks_uri
+    def test_provider_configuration(self):
+        provider_config = self.op.provider_configuration()
+        assert provider_config["issuer"] == ISSUER
+        assert provider_config["software_statements"] == self.op.software_statements_jws
+        assert provider_config["signing_key"] == self.op.signed_intermediate_key
+        assert provider_config["signed_jwks_uri"] == self.op.signed_jwks_uri
         _jws = JWS()
         assert _jws.is_jws(provider_config["signed_metadata"])
-        assert _jws.jwt.headers["kid"] == op.intermediate_key.kid
+        assert _jws.jwt.headers["kid"] == self.op.intermediate_key.kid
 
         expected_metadata_parameters = set(provider_config.keys())
         expected_metadata_parameters.remove("signed_metadata")
         actual_metadata_parameters = JWS().verify_compact(provider_config["signed_metadata"],
-                                                          keys=[op.intermediate_key]).keys()
+                                                          keys=[self.op.intermediate_key]).keys()
         assert set(actual_metadata_parameters) == expected_metadata_parameters
 
     def test_register_client(self):
-        federation_key = sym_key()
-        federation = Federation(federation_key)
+        federation = Federation(TestOP.federation_key)
 
-        op_root_key = rsa_key()
         op_software_statement = federation.create_software_statement(
-                dict(root_key=json.dumps(op_root_key.serialize(private=False)),
+                dict(root_key=json.dumps(self.op.root_key.serialize(private=False)),
                      response_types_supported=["code"]))
-        op = OP(None, op_root_key, [op_software_statement], [federation_key], None)
 
         rp_root_key = rsa_key()
         rp_intermediate_key = rsa_key()
@@ -77,24 +79,25 @@ class TestOP(object):
         signature = SignedHttpRequest(rp_intermediate_key).sign(rp_intermediate_key.alg,
                                                                 body=req.to_json())
 
-        client_metadata = op.register_client({"Authorization": "pop {}".format(signature)},
-                                      req.to_json())
+        client_metadata = self.op.register_client({"Authorization": "pop {}".format(signature)},
+                                                  req.to_json())
         registration_response = FederationRegistrationResponse().from_dict(client_metadata)
         assert registration_response.verify()
         assert "client_id" in registration_response
-        assert registration_response["provider_software_statement"] == op_software_statement
+        assert registration_response["provider_software_statement"] == \
+               self.op.software_statements_jws[0]
         assert registration_response["response_types"] == ["code"]
 
     def test_register_client_reject_request_without_authorization(self):
         with pytest.raises(OIDCFederationError) as exc:
-            OP(None, sym_key(), [], None, None).register_client({}, None)
+            self.op.register_client({}, None)
 
         assert "Authorization" in str(exc.value)
 
     def test_register_client_rejects_request_with_wrong_auth_scheme(self):
         with pytest.raises(OIDCFederationError) as exc:
-            OP(None, sym_key(), [], None, None).register_client({"Authorization": "Basic foobar"},
-                                                           None)
+            self.op.register_client({"Authorization": "Basic foobar"},
+                                    None)
 
         assert "Authentication scheme" in str(exc.value)
 

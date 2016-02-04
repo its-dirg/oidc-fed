@@ -15,20 +15,20 @@ from .messages import (FederationProviderConfigurationResponse,
 
 class OP(OIDCFederationEntity):
     def __init__(self, issuer, root_key, software_statements, federation_keys, signed_jwks_uri,
-                 jwks_uri=None, capabilities=None):
-        # type: (str, Key, Sequence[str], Sequence[Key], str, Optional[str]) -> None
+                 provider_instance, jwks_uri=None):
+        # type: (str, Key, Sequence[str], Sequence[Key], str, Provider, Optional[str]) -> None
         """
         :param issuer: issuer URL for this provider
         :param root_key: root signing key for this OP
         :param software_statements: all software statements isssued by federations for this OP
         :param federation_keys: public keys from all federations this OP is part of
         :param signed_jwks_uri: URL endpoint where the signed JWKS is published
+        :param provider_instance: backing provider instance to delegate to
         :param jwks_uri: URL endpoint where the JWKS is published
         """
         super(OP, self).__init__(issuer, root_key, software_statements, federation_keys,
                                  signed_jwks_uri)
-        self.provider = Provider(issuer, None, {}, None, None, None, None, None,
-                                 capabilities=capabilities)
+        self.provider = provider_instance
         self.provider.jwks_uri = jwks_uri
 
         self.registration_verification = RegistrationRequestVerification()
