@@ -98,19 +98,6 @@ class OP(OIDCFederationEntity):
             "provider_software_statement"] = provider_software_statement.jwt.pack()
         return registration_response
 
-    def _find_software_statement_for_federation(self, federation_kid):
-        # type: (str) -> Optional[JWS]
-        """
-        Find a software statement signed by the specified key id.
-        :param federation_kid: key id to search for
-        :return: the first occurrence of a software statement signed by the specified key id
-        """
-        for ss in self.software_statements:
-            if ss.jwt.headers["kid"] == federation_kid:
-                return ss
-
-        return None
-
 
 class RegistrationRequestVerification(object):
     """Client metadata attributes which are JSON arrays in registration request."""

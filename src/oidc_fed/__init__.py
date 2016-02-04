@@ -166,6 +166,19 @@ class OIDCFederationEntity(object):
 
         raise OIDCFederationError("No software statement issued by known federation.")
 
+    def _find_software_statement_for_federation(self, federation_kid):
+        # type: (str) -> Optional[JWS]
+        """
+        Find a software statement signed by the specified key id.
+        :param federation_kid: key id to search for
+        :return: the first occurrence of a software statement signed by the specified key id
+        """
+        for ss in self.software_statements:
+            if ss.jwt.headers["kid"] == federation_kid:
+                return ss
+
+        return None
+
 
 def verify_signing_key(signing_key):
     if not signing_key.alg:
