@@ -5,7 +5,7 @@ from oic.exception import MessageException
 from oic.extension.signed_http_req import SignedHttpRequest, ValidationError
 from oic.oic import PREFERENCE2PROVIDER
 from oic.oic.provider import Provider
-from oic.utils.http_util import Response
+from oic.utils.http_util import Response, Created
 
 from . import OIDCFederationEntity, OIDCFederationError
 from .messages import (FederationProviderConfigurationResponse,
@@ -47,7 +47,7 @@ class OP(OIDCFederationEntity):
         provider_config["signed_metadata"] = self._sign(provider_config.to_dict(),
                                                         self.intermediate_key)
 
-        return provider_config
+        return Response(provider_config.to_json(), content="application/json")
 
     def register_client(self, request_headers, request_body):
         # type (Mapping[str, str], str) -> Response
@@ -96,7 +96,7 @@ class OP(OIDCFederationEntity):
         registration_response = FederationRegistrationResponse(**result.to_dict())
         registration_response[
             "provider_software_statement"] = provider_software_statement.jwt.pack()
-        return registration_response
+        return Created(registration_response.to_json(), content="application/json")
 
 
 class RegistrationRequestVerification(object):

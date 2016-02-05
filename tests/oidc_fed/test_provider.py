@@ -1,5 +1,4 @@
 import json
-from collections import Counter
 
 import pytest
 from Crypto.PublicKey import RSA
@@ -39,7 +38,7 @@ class TestOP(object):
                      Provider(ISSUER, None, {}, None, None, None, None, None))
 
     def test_provider_configuration(self):
-        provider_config = self.op.provider_configuration()
+        provider_config = json.loads(self.op.provider_configuration().message)
         assert provider_config["issuer"] == ISSUER
         assert provider_config["software_statements"] == self.op.software_statements_jws
         assert provider_config["signing_key"] == self.op.signed_intermediate_key
@@ -56,10 +55,6 @@ class TestOP(object):
 
     def test_register_client(self):
         federation = Federation(TestOP.federation_key)
-
-        op_software_statement = federation.create_software_statement(
-                dict(root_key=json.dumps(self.op.root_key.serialize(private=False)),
-                     response_types_supported=["code"]))
 
         rp_root_key = rsa_key()
         rp_intermediate_key = rsa_key()
@@ -79,8 +74,9 @@ class TestOP(object):
         signature = SignedHttpRequest(rp_intermediate_key).sign(rp_intermediate_key.alg,
                                                                 body=req.to_json())
 
-        client_metadata = self.op.register_client({"Authorization": "pop {}".format(signature)},
-                                                  req.to_json())
+        response = self.op.register_client({"Authorization": "pop {}".format(signature)},
+                                           req.to_json())
+        client_metadata = json.loads(response.message)
         registration_response = FederationRegistrationResponse().from_dict(client_metadata)
         assert registration_response.verify()
         assert "client_id" in registration_response
