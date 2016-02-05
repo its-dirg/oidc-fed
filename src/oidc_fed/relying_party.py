@@ -5,6 +5,7 @@ from jwkest import JWKESTException
 from jwkest.jwt import JWT
 from oic.exception import MessageException
 from oic.extension.signed_http_req import SignedHttpRequest
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 
 from . import OIDCFederationError, OIDCFederationEntity
 from .messages import (FederationProviderConfigurationResponse,
@@ -28,7 +29,7 @@ class RP(OIDCFederationEntity):
         super(RP, self).__init__(name, root_key, software_statements, federation_keys,
                                  signed_jwks_uri)
 
-        self.client = FederationClient()
+        self.client = FederationClient(client_authn_method=CLIENT_AUTHN_METHOD)
 
     def get_provider_configuration(self, issuer):
         # type: (str) -> FederationProviderConfigurationResponse
