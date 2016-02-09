@@ -2,6 +2,8 @@ language: python
 python:
   - 3.5
 sudo: false
+git:
+  submodules: false
 
 install:
   - pip install -U tox

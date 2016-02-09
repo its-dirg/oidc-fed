@@ -1,0 +1,3 @@
+[submodule "model-doc"]
+	path = model-doc
+	url = https://gist.github.com/f0de040f2cf26b8f2705.git
