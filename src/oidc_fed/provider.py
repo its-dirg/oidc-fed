@@ -26,9 +26,9 @@ class OP(OIDCFederationEntity):
         :param provider_instance: backing provider instance to delegate to
         :param jwks_uri: URL endpoint where the JWKS is published
         """
+        self.provider = provider_instance
         super(OP, self).__init__(issuer, root_key, software_statements, federation_keys,
                                  signed_jwks_uri)
-        self.provider = provider_instance
         self.provider.jwks_uri = jwks_uri
 
         self.registration_verification = RegistrationRequestVerification()
@@ -97,6 +97,10 @@ class OP(OIDCFederationEntity):
         registration_response[
             "provider_software_statement"] = provider_software_statement.jwt.pack()
         return Created(registration_response.to_json(), content="application/json")
+
+    def rotate_jwks(self):
+        super(OP, self).rotate_jwks()
+        self.provider.keyjar[""] = self.jwks[""]
 
 
 class RegistrationRequestVerification(object):
