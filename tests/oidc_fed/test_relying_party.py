@@ -30,12 +30,8 @@ def sym_key():
 
 
 class TestRP(object):
-    @responses.activate
-    def test_get_provider_configuration(self):
-        # key/signing stuff
-        federation_key = sym_key()
-        op_root_key = rsa_key()
-        op_registration_data = dict(root_key=op_root_key.serialize(private=False))
+    def create_provider_config(self, op_root_key, federation_key):
+        op_registration_data = dict(issuer=ISSUER, root_key=op_root_key.serialize(private=False))
         op_software_statement = Federation(federation_key).create_software_statement(
                 op_registration_data)
         op_intermediate_key = rsa_key()
@@ -55,6 +51,15 @@ class TestRP(object):
                                                  alg=op_intermediate_key.alg).sign_compact(
                 keys=[op_intermediate_key])
 
+        return provider_config
+
+    @responses.activate
+    def test_get_provider_configuration(self):
+        # key/signing stuff
+        federation_key = sym_key()
+        op_root_key = rsa_key()
+        provider_config = self.create_provider_config(op_root_key, federation_key)
+
         # provider configuration endpoint
         responses.add(responses.GET, "{}/.well-known/openid-configuration".format(ISSUER),
                       body=json.dumps(provider_config), status=200,
@@ -72,6 +77,19 @@ class TestRP(object):
             # default provider config missing all extra required attributes of FederationProviderConfigurationResponse
             rp._validate_provider_configuration(
                     FederationProviderConfigurationResponse(**DEFAULT_PROVIDER_CONFIG))
+
+    def test_reject_software_statement_with_mismatching_issuer(self):
+        fed_key = sym_key()
+        op_root_key = rsa_key()
+        provider_config = self.create_provider_config(op_root_key, fed_key)
+        provider_config["issuer"] = "https://other-op.example.com"
+
+        rp = RP(None, sym_key(), [], [fed_key], None)
+        with pytest.raises(OIDCFederationError) as exc:
+            rp._validate_provider_configuration(
+                    FederationProviderConfigurationResponse(**provider_config))
+
+        assert "issuer" in str(exc.value)
 
     def test_reject_signed_metadata_not_signed_by_provider_intermediate_key(self):
         op_intermediate_key = rsa_key()
@@ -125,7 +143,7 @@ class TestRP(object):
         op_signed_intermediate_key = JWS(json.dumps(op_intermediate_key.serialize(private=False)),
                                          alg=op_root_key.alg).sign_compact(keys=[op_root_key])
         op_software_statement = Federation(federation_key).create_software_statement(
-                dict(root_key=op_root_key.serialize(private=False),
+                dict(issuer=ISSUER, root_key=op_root_key.serialize(private=False),
                      scopes_supported=["openid", "test_scope"]))
         rp = RP(None, sym_key(), [], [federation_key], None)
 
@@ -177,7 +195,7 @@ class TestRP(object):
         op_signed_intermediate_key = JWS(json.dumps(op_intermediate_key.serialize(private=False)),
                                          alg=op_root_key.alg).sign_compact(keys=[op_root_key])
         op_software_statement = Federation(federation_key).create_software_statement(
-                dict(root_key=op_root_key.serialize(private=False),
+                dict(issuer=ISSUER, root_key=op_root_key.serialize(private=False),
                      scopes_supported=["openid", "test_scope"]))
 
         # signed_jwks_uri

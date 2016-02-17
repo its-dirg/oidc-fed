@@ -100,6 +100,9 @@ class RP(OIDCFederationEntity):
                 [registration_response["provider_software_statement"]],
                 self.client.provider_info["signing_key"])
 
+        if provider_software_statement.msg["issuer"] != self.client.provider_info["issuer"]:
+            raise OIDCFederationError("Mismatching 'issuer' in software statement and provider configuration information: {} != {}".format(provider_software_statement.msg["issuer"], self.client.provider_info["issuer"]))
+
         provider_metadata = {k: v for k, v in provider_software_statement.msg.items() if
                              k in FederationProviderConfigurationResponse.c_param}
         self.client.provider_info.update(provider_metadata)
@@ -154,9 +157,13 @@ class RP(OIDCFederationEntity):
         except MessageException as e:
             raise OIDCFederationError("Error in provider configuration: {}.".format(str(e)))
 
-        _, provider_signing_key = self._verify_signature_chain(
+        provider_software_statement, provider_signing_key = self._verify_signature_chain(
                 provider_config["software_statements"],
                 provider_config["signing_key"])
+
+        if provider_software_statement.msg["issuer"] != provider_config["issuer"]:
+            raise OIDCFederationError("Mismatching 'issuer' in software statement and provider configuration information: {} != {}".format(provider_software_statement.msg["issuer"], provider_config["issuer"]))
+
         signed_provider_metadata = self._verify_signed_provider_metadata(
                 provider_config["signed_metadata"], provider_signing_key)
 
