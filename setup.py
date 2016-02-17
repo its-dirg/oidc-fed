@@ -10,7 +10,7 @@ setup(
     author_email='dirg@its.umu.se',
     license='Apache 2.0',
     url='https://github.com/its-dirg/oidc-fed',
-    packages=find_packages('src/'),
+    packages=find_packages('src/', exclude=['services*']),
     package_dir={'': 'src'},
     install_requires=[
         "oic",

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title%}OpenID Connect Provider{% endblock %}
+
+{% block body %}
+Software statements:
+<ul>
+    {% for ss in software_statements %}
+    <li>{{ ss }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}
