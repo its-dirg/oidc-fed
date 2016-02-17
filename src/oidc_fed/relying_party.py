@@ -76,8 +76,8 @@ class RP(OIDCFederationEntity):
 
         if http_resp.status_code != 201:
             raise OIDCFederationError(
-                    "Registration with provider failed with HTTP status {}.".format(
-                            http_resp.status_code))
+                    "Registration with provider failed with error '{}'".format(
+                            http_resp.text))
         registration_response = FederationRegistrationResponse(**http_resp.json())
         try:
             registration_response.verify()
