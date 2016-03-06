@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from jwkest.jwk import RSAKey, import_rsa_key_from_file
 from oic.oauth2 import rndstr
 
-from services.util import write_private_key_to_jwk
+from oidc_fed.util import write_private_key_to_jwk
 
 if __name__ == "__main__":
     parser = ArgumentParser()

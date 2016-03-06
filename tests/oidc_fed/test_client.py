@@ -8,7 +8,7 @@ from jwkest.jwk import RSAKey
 from jwkest.jws import JWS
 from oic.utils.keyio import UpdateFailed
 
-from oidc_fed.util import SignedKeyBundle, KeyJarWithSignedKeyBundles
+from oidc_fed.client import SignedKeyBundle, KeyJarWithSignedKeyBundles
 
 
 def create_jwks(kid=""):

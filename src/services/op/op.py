@@ -17,7 +17,7 @@ from werkzeug.utils import redirect
 
 from oidc_fed import OIDCFederationError
 from oidc_fed.provider import OP
-from services.util import load_software_statements
+from oidc_fed.util import load_software_statements
 
 PORT = 8080
 

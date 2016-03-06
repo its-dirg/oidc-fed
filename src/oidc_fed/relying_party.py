@@ -11,7 +11,7 @@ from . import OIDCFederationError, OIDCFederationEntity
 from .messages import (FederationProviderConfigurationResponse,
                        FederationRegistrationRequest,
                        FederationRegistrationResponse)
-from .util import FederationClient
+from .client import FederationClient
 
 logger = logging.getLogger(__name__)
 

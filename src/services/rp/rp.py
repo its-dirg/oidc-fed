@@ -12,7 +12,7 @@ from oic.oic.message import AuthorizationResponse
 from werkzeug.utils import redirect
 
 from oidc_fed.relying_party import RP
-from services.util import load_software_statements
+from oidc_fed.util import load_software_statements
 
 name = "https://localhost:5000"
 with open("keys/root.jwk") as f:
