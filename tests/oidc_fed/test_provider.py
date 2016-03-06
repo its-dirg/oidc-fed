@@ -5,7 +5,7 @@ from Crypto.PublicKey import RSA
 from jwkest.jwk import RSAKey, SYMKey
 from jwkest.jws import JWS
 from oic.extension.signed_http_req import SignedHttpRequest
-from oic.oauth2 import rndstr
+from oic import rndstr
 from oic.oic.provider import Provider
 
 from oidc_fed import OIDCFederationError

@@ -1,7 +1,7 @@
 import pytest
 from jwkest.jwk import SYMKey
 from jwkest.jws import JWS
-from oic.oauth2 import rndstr
+from oic import rndstr
 
 from oidc_fed.federation import Federation
 
