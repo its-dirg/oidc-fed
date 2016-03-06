@@ -49,7 +49,7 @@ class OP(OIDCFederationEntity):
 
         return Response(provider_config.to_json(), content="application/json")
 
-    def register_client(self, request_headers, request_body):
+    def register_client(self, authorization, request_body):
         # type (Mapping[str, str], str) -> Response
         """
         Process a signed registration request from a client.
@@ -58,9 +58,9 @@ class OP(OIDCFederationEntity):
         :raise OIDCFederationError: if the registration request is malformed
         :return: the registered client metadata to return to the client
         """
-        if "Authorization" not in request_headers:
+        if not authorization:
             raise OIDCFederationError("Missing Authorization header in registration request.")
-        if not request_headers["Authorization"].startswith("pop "):
+        if not authorization.startswith("pop "):
             raise OIDCFederationError("Wrong Authentication scheme in registration request.")
 
         registration_request = FederationRegistrationRequest(**json.loads(request_body))
@@ -75,7 +75,7 @@ class OP(OIDCFederationEntity):
                 registration_request["software_statements"],
                 registration_request["signing_key"])
 
-        request_signature = request_headers["Authorization"][len("pop "):]
+        request_signature = authorization[len("pop "):]
         try:
             SignedHttpRequest(client_signing_key).verify(request_signature, body=request_body)
         except ValidationError as e:

@@ -70,7 +70,8 @@ def provider_configuration():
 
 @app.route("/registration", methods=["post"])
 def client_registration():
-    response = OP.register_client(request.headers, request.get_data().decode("utf-8"))
+    response = OP.register_client(request.headers.get("Authorization"),
+                                  request.get_data().decode("utf-8"))
     return response.message, response.status, response.headers
 
 

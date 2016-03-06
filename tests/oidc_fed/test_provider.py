@@ -74,8 +74,7 @@ class TestOP(object):
         signature = SignedHttpRequest(rp_intermediate_key).sign(rp_intermediate_key.alg,
                                                                 body=req.to_json())
 
-        response = self.op.register_client({"Authorization": "pop {}".format(signature)},
-                                           req.to_json())
+        response = self.op.register_client("pop {}".format(signature), req.to_json())
         client_metadata = json.loads(response.message)
         registration_response = FederationRegistrationResponse().from_dict(client_metadata)
         assert registration_response.verify()
@@ -84,16 +83,19 @@ class TestOP(object):
                self.op.software_statements_jws[0]
         assert registration_response["response_types"] == ["code"]
 
-    def test_register_client_reject_request_without_authorization(self):
+    @pytest.mark.parametrize("authz_header", [
+        None,
+        ""
+    ])
+    def test_register_client_reject_request_without_authorization(self, authz_header):
         with pytest.raises(OIDCFederationError) as exc:
-            self.op.register_client({}, None)
+            self.op.register_client(authz_header, None)
 
         assert "Authorization" in str(exc.value)
 
     def test_register_client_rejects_request_with_wrong_auth_scheme(self):
         with pytest.raises(OIDCFederationError) as exc:
-            self.op.register_client({"Authorization": "Basic foobar"},
-                                    None)
+            self.op.register_client("Basic foobar", None)
 
         assert "Authentication scheme" in str(exc.value)
 
