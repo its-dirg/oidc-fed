@@ -31,7 +31,6 @@ app = Flask(__name__)
 template_loader = jinja2.FileSystemLoader(["templates", "../templates"])
 app.jinja_loader = template_loader
 
-
 @app.route("/")
 def index():
     return render_template("index.html", software_statements=[ss.jwt.headers["kid"] for ss in
@@ -42,8 +41,9 @@ def index():
 def make_authn():
     issuer = request.form.get("issuer")
     software_statement = request.form.get("software_statement")
+    response_type = request.form.get("response_type")
 
-    registration_data = {}
+    registration_data = {"response_types": [response_type]}
     if software_statement:
         registration_data["software_statements"] = RP.software_statements_jws[
             int(software_statement)]
@@ -51,9 +51,10 @@ def make_authn():
     client_software_statement = RP.register_with_provider(issuer, registration_data)
 
     args = {
-        "scope": ["openid"],
-        "response_type": "code",
-        "redirect_uri": client_software_statement.msg["redirect_uris"][0]
+        "scope": ["openid profile"],
+        "response_type": response_type,
+        "redirect_uri": client_software_statement.msg["redirect_uris"][0],
+        "response_mode": "query",
     }
 
     auth_req = RP.client.construct_AuthorizationRequest(request_args=args)
@@ -73,20 +74,26 @@ def handle_authn_response():
     authn_response = RP.client.parse_response(AuthorizationResponse,
                                               info=request.query_string.decode("utf-8"),
                                               sformat="urlencoded")
-    auth_code = authn_response["code"]
-    # make token request
-    args = {
-        "code": auth_code,
-        "client_id": RP.client.client_id,
-        "client_secret": RP.client.client_secret
-    }
 
-    token_response = RP.client.do_access_token_request(scope="openid", request_args=args)
+    auth_code = None
+    if "code" in authn_response:
+        auth_code = authn_response["code"]
+        # make token request
+        args = {
+            "code": auth_code,
+            "client_id": RP.client.client_id,
+            "client_secret": RP.client.client_secret
+        }
 
-    # TODO do userinfo req
+        token_response = RP.client.do_access_token_request(scope="openid", request_args=args)
+        access_token = token_response["access_token"]
+        id_token = token_response["id_token"].to_dict()
+        # TODO do userinfo req
+    else:
+        id_token = authn_response["id_token"].to_dict()
+        access_token = authn_response.get("access_token")
 
-    return jsonify(dict(auth_code=authn_response["code"], token=token_response["access_token"],
-                        id_token=token_response["id_token"].to_dict()))
+    return jsonify(dict(auth_code=auth_code, token=access_token, id_token=id_token))
 
 
 if __name__ == "__main__":
