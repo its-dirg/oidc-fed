@@ -15,11 +15,18 @@ def load_software_statements(filepath):
         return [line.strip() for line in f]
 
 
-def write_key_to_jwk(key, filepath):
-    with open(filepath, "w") as f:
-        f.write(json.dumps(key.serialize(private=False)))
+def write_key_to_jwk(key, filepath, pretty_format=False):
+    _write_key_to_jwk(key, filepath, False, pretty_format)
 
 
-def write_private_key_to_jwk(key, filepath):
+def write_private_key_to_jwk(key, filepath, pretty_format=False):
+    _write_key_to_jwk(key, filepath, True, pretty_format)
+
+
+def _write_key_to_jwk(key, filepath, private, pretty_format=False):
+    indent = None
+    if pretty_format:
+        indent = 0
+
     with open(filepath, "w") as f:
-        f.write(json.dumps(key.serialize(private=True)))
+        f.write(json.dumps(key.serialize(private=private), indent=indent, sort_keys=True))
