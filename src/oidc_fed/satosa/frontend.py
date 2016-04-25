@@ -35,7 +35,7 @@ class OIDCFederationFrontend(OIDCFrontend):
         return url_map
 
     def _signed_jwks(self, context):
-        return Response(self.OP.signed_jwks, content="application/jwt")
+        return Response(self.OP.signed_jwks, content="application/jose")
 
     def _provider_config(self, context):
         return self.OP.provider_configuration()
