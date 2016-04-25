@@ -25,7 +25,7 @@ def init_fed_op(cnf):
         provider_config = yaml.safe_load(f)
 
     root_key = keyrep(provider_config["root_key_jwk"])
-    federation_keys = [keyrep(jwk) for jwk in provider_config["federation_jwk"]]
+    federation_keys = [keyrep(jwk) for jwk in provider_config["federations_jwk"]]
 
     authn_broker = AuthnBroker()
 

@@ -20,7 +20,7 @@ def init_oidc_fed_rp(cnf):
         rp_config = yaml.safe_load(f)
 
     root_key = keyrep(rp_config["root_key_jwk"])
-    federation_keys = [keyrep(jwk) for jwk in rp_config["federation_jwk"]]
+    federation_keys = [keyrep(jwk) for jwk in rp_config["federations_jwk"]]
 
     return RP(name, root_key, rp_config["software_statements"], federation_keys, name + "/signed_jwks")
 
