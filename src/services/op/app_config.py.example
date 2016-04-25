@@ -1,4 +1,4 @@
 PROVIDER_CONFIG = "oidc-fed/src/services/op/config.yml"
-SERVER_NAME = "localhost:8000"
+SERVER_NAME = "localhost:8080"
 HTTPS_KEY = "keys/localhost.key"
 HTTPS_CERT = "keys/localhost.crt"

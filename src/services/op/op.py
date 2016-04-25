@@ -29,7 +29,7 @@ def init_fed_op(cnf):
 
     authn_broker = AuthnBroker()
 
-    name = cnf["SERVER_NAME"]
+    name = "https://" + cnf["SERVER_NAME"]
     user = "tester"
     authn_broker.add("password", NoAuthn(None, user))
     provider = Provider(name, SessionDB(name), {}, authn_broker, None, AuthzHandling(), verify_client, None)
