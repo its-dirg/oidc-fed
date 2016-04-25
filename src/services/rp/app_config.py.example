@@ -1,0 +1,4 @@
+RELYING_PARTY_CONFIG = "oidc-fed/src/services/rp/config.yml"
+SERVER_NAME = "localhost:5000"
+HTTPS_KEY = "keys/localhost.key"
+HTTPS_CERT = "keys/localhost.crt"

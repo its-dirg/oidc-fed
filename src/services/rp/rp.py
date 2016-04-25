@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
-import json
 import ssl
 
 import jinja2
+import yaml
 from flask.app import Flask
-from flask.globals import request
+from flask.globals import request, current_app
 from flask.json import jsonify
 from flask.templating import render_template
 from jwkest.jwk import keyrep
@@ -12,29 +12,37 @@ from oic.oic.message import AuthorizationResponse
 from werkzeug.utils import redirect
 
 from oidc_fed.relying_party import RP
-from oidc_fed.util import load_software_statements
 
-name = "https://localhost:5000"
-with open("keys/root.jwk") as f:
-    jwk = json.loads(f.read())
-root_key = keyrep(jwk)
-federation_keys = []
-for keypath in ["../fo/keys/pub/fed1.example.com.jwk", "../fo/keys/pub/fed2.example.com.jwk"]:
-    with open(keypath) as f:
-        federation_keys.append(keyrep(json.loads(f.read())))
 
-RP = RP(name, root_key, load_software_statements("software_statements"), federation_keys,
-        name + "/signed_jwks")
+def init_oidc_fed_rp(cnf):
+    name = cnf["SERVER_NAME"]
+    with open(cnf["RELYING_PARTY_CONFIG"]) as f:
+        rp_config = yaml.safe_load(f)
 
-app = Flask(__name__)
+    root_key = keyrep(rp_config["root_key_jwk"])
+    federation_keys = [keyrep(jwk) for jwk in rp_config["federation_jwk"]]
 
-template_loader = jinja2.FileSystemLoader(["templates", "../templates"])
-app.jinja_loader = template_loader
+    return RP(name, root_key, rp_config["software_statements"], federation_keys, name + "/signed_jwks")
+
+
+def init_app():
+    app = Flask(__name__)
+    app.config.from_envvar("OIDCFED_RELYING_PARTY_CONFIG")
+
+    template_loader = jinja2.FileSystemLoader(["templates", "../templates"])
+    app.jinja_loader = template_loader
+
+    app.rp = init_oidc_fed_rp(app.config)
+
+    return app
+
+app = init_app()
+
 
 @app.route("/")
 def index():
     return render_template("index.html", software_statements=[ss.jwt.headers["kid"] for ss in
-                                                              RP.software_statements])
+                                                              current_app.rp.software_statements])
 
 
 @app.route("/start", methods=["post"])
@@ -45,10 +53,10 @@ def make_authn():
 
     registration_data = {"response_types": [response_type]}
     if software_statement:
-        registration_data["software_statements"] = RP.software_statements_jws[
+        registration_data["software_statements"] = current_app.rp.software_statements_jws[
             int(software_statement)]
 
-    client_software_statement = RP.register_with_provider(issuer, registration_data)
+    client_software_statement = current_app.rp.register_with_provider(issuer, registration_data)
 
     args = {
         "scope": ["openid profile"],
@@ -57,21 +65,21 @@ def make_authn():
         "response_mode": "query",
     }
 
-    auth_req = RP.client.construct_AuthorizationRequest(request_args=args)
-    login_url = auth_req.request(RP.client.authorization_endpoint)
+    auth_req = current_app.rp.client.construct_AuthorizationRequest(request_args=args)
+    login_url = auth_req.request(current_app.rp.client.authorization_endpoint)
 
     return redirect(login_url)
 
 
 @app.route("/signed_jwks")
 def signed_jwks():
-    return RP.signed_jwks
+    return current_app.rp.signed_jwks
 
 
 @app.route("/finish")
 def handle_authn_response():
     # parse authn response
-    authn_response = RP.client.parse_response(AuthorizationResponse,
+    authn_response = current_app.rp.client.parse_response(AuthorizationResponse,
                                               info=request.query_string.decode("utf-8"),
                                               sformat="urlencoded")
 
@@ -81,11 +89,11 @@ def handle_authn_response():
         # make token request
         args = {
             "code": auth_code,
-            "client_id": RP.client.client_id,
-            "client_secret": RP.client.client_secret
+            "client_id": current_app.rp.client.client_id,
+            "client_secret": current_app.rp.client.client_secret
         }
 
-        token_response = RP.client.do_access_token_request(scope="openid", request_args=args)
+        token_response = current_app.rp.client.do_access_token_request(scope="openid", request_args=args)
         access_token = token_response["access_token"]
         id_token = token_response["id_token"].to_dict()
         # TODO do userinfo req
@@ -98,5 +106,5 @@ def handle_authn_response():
 
 if __name__ == "__main__":
     context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-    context.load_cert_chain("keys/localhost.crt", "keys/localhost.key")
+    context.load_cert_chain(app.config["HTTPS_CERT"], app.config["HTTPS_KEY"])
     app.run(debug=True, ssl_context=context)

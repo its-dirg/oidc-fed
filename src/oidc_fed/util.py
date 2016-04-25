@@ -10,11 +10,6 @@ def generate_rsa_key(entity_name):
                   kid="{}/{}".format(entity_name, rndstr()))
 
 
-def load_software_statements(filepath):
-    with open(filepath) as f:
-        return [line.strip() for line in f]
-
-
 def write_key_to_jwk(key, filepath, pretty_format=False):
     _write_key_to_jwk(key, filepath, False, pretty_format)
 
