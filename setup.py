@@ -13,7 +13,7 @@ setup(
     packages=find_packages('src/', exclude=['services*']),
     package_dir={'': 'src'},
     install_requires=[
-        'oic==0.8.3',
+        'oic==0.8.4.0',
     ],
     zip_safe=False,
     classifiers=[
